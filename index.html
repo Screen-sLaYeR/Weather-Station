@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ESP8266 Sensor Data</title>
+    <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-database.js"></script>
+</head>
+<body>
+    <h1>ESP8266 Sensor Data</h1>
+    <p>Temperature: <span id="temperature">Loading...</span> °C</p>
+    <p>Humidity: <span id="humidity">Loading...</span> %</p>
+
+    <script>
+        var firebaseConfig = {
+            apiKey: "your-api-key",
+            authDomain: "your-project-id.firebaseapp.com",
+            databaseURL: "https://your-project-id.firebaseio.com",
+            projectId: "your-project-id",
+            storageBucket: "your-project-id.appspot.com",
+            messagingSenderId: "your-messaging-sender-id",
+            appId: "your-app-id"
+        };
+        firebase.initializeApp(firebaseConfig);
+
+        var db = firebase.database();
+        db.ref("/sensor/temperature").on("value", (snapshot) => {
+            document.getElementById("temperature").innerText = snapshot.val();
+        });
+        db.ref("/sensor/humidity").on("value", (snapshot) => {
+            document.getElementById("humidity").innerText = snapshot.val();
+        });
+    </script>
+</body>
+</html>
