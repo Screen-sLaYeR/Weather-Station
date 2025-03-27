@@ -3,35 +3,81 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ESP8266 Sensor Data</title>
+    <title>ESP8266 Weather Dashboard</title>
     <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-database.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
-    <h1>ESP8266 Sensor Data</h1>
+    <h1>ESP8266 Weather Dashboard</h1>
     <p>Temperature: <span id="temperature">Loading...</span> °C</p>
     <p>Humidity: <span id="humidity">Loading...</span> %</p>
-
+    <p>Pressure: <span id="pressure">Loading...</span> hPa</p>
+    
+    <canvas id="tempChart"></canvas>
+    <canvas id="humidityChart"></canvas>
+    <canvas id="pressureChart"></canvas>
+    
     <script>
         var firebaseConfig = {
-  apiKey: "AIzaSyDs_XrrRUXFmlbgeMz9f8w6K_WhNGZta5c",
-  authDomain: "weather-station-1b75f.firebaseapp.com",
-  databaseURL: "https://weather-station-1b75f-default-rtdb.firebaseio.com",
-  projectId: "weather-station-1b75f",
-  storageBucket: "weather-station-1b75f.firebasestorage.app",
-  messagingSenderId: "225927197582",
-  appId: "1:225927197582:web:28ce56f603ecd6da6e2adf",
-  measurementId: "G-7CQR07B407"
-};
+            apiKey: "AIzaSyDs_XrrRUXFmlbgeMz9f8w6K_WhNGZta5c",
+            authDomain: "weather-station-1b75f.firebaseapp.com",
+            databaseURL: "https://weather-station-1b75f-default-rtdb.firebaseio.com",
+            projectId: "weather-station-1b75f",
+            storageBucket: "weather-station-1b75f.firebasestorage.app",
+            messagingSenderId: "225927197582",
+            appId: "1:225927197582:web:28ce56f603ecd6da6e2adf",
+            measurementId: "G-7CQR07B407"
+        };
         firebase.initializeApp(firebaseConfig);
-
         var db = firebase.database();
-        db.ref("/sensor/temperature").on("value", (snapshot) => {
-            document.getElementById("temperature").innerText = snapshot.val();
+
+        function updateField(field, elementId) {
+            db.ref("/sensor/" + field).on("value", (snapshot) => {
+                document.getElementById(elementId).innerText = snapshot.val();
+            });
+        }
+        
+        updateField("temperature_dht", "temperature");
+        updateField("humidity", "humidity");
+        updateField("pressure", "pressure");
+        
+        var tempChartCtx = document.getElementById("tempChart").getContext("2d");
+        var humidityChartCtx = document.getElementById("humidityChart").getContext("2d");
+        var pressureChartCtx = document.getElementById("pressureChart").getContext("2d");
+        
+        var tempChart = new Chart(tempChartCtx, {
+            type: "line",
+            data: { labels: [], datasets: [{ label: "Temperature (°C)", data: [], borderColor: "red", fill: false }] },
         });
-        db.ref("/sensor/humidity").on("value", (snapshot) => {
-            document.getElementById("humidity").innerText = snapshot.val();
+        
+        var humidityChart = new Chart(humidityChartCtx, {
+            type: "line",
+            data: { labels: [], datasets: [{ label: "Humidity (%)", data: [], borderColor: "blue", fill: false }] },
         });
+        
+        var pressureChart = new Chart(pressureChartCtx, {
+            type: "line",
+            data: { labels: [], datasets: [{ label: "Pressure (hPa)", data: [], borderColor: "green", fill: false }] },
+        });
+        
+        function updateChart(chart, field) {
+            db.ref("/sensor/" + field).on("value", (snapshot) => {
+                let data = snapshot.val();
+                let now = new Date().toLocaleTimeString();
+                chart.data.labels.push(now);
+                chart.data.datasets[0].data.push(data);
+                if (chart.data.labels.length > 20) {
+                    chart.data.labels.shift();
+                    chart.data.datasets[0].data.shift();
+                }
+                chart.update();
+            });
+        }
+        
+        updateChart(tempChart, "temperature_dht");
+        updateChart(humidityChart, "humidity");
+        updateChart(pressureChart, "pressure");
     </script>
 </body>
 </html>
