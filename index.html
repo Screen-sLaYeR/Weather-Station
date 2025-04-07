@@ -1,83 +1,160 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ESP8266 Weather Dashboard</title>
-    <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-database.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ESP8266 Weather Dashboard</title>
+
+  <!-- Firebase and Chart.js -->
+  <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-database.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #f4f6f8;
+      margin: 0;
+      padding: 20px;
+      color: #333;
+    }
+
+    h1 {
+      text-align: center;
+      color: #2c3e50;
+    }
+
+    .container {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-around;
+    }
+
+    .card {
+      background: white;
+      border-radius: 10px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+      padding: 20px;
+      margin: 15px;
+      width: 300px;
+      text-align: center;
+    }
+
+    .alert {
+      background-color: #ffcccc;
+      color: #900;
+      font-weight: bold;
+      padding: 10px;
+      border-radius: 5px;
+      margin: 10px 0;
+      display: none;
+    }
+
+    canvas {
+      margin-top: 10px;
+      width: 100% !important;
+      height: 200px !important;
+    }
+  </style>
 </head>
 <body>
-    <h1>ESP8266 Weather Dashboard</h1>
-    <p>Temperature: <span id="temperature">Loading...</span> °C</p>
-    <p>Humidity: <span id="humidity">Loading...</span> %</p>
-    <p>Pressure: <span id="pressure">Loading...</span> hPa</p>
-    
-    <canvas id="tempChart"></canvas>
-    <canvas id="humidityChart"></canvas>
-    <canvas id="pressureChart"></canvas>
-    
-    <script>
-        var firebaseConfig = {
-            apiKey: "AIzaSyDs_XrrRUXFmlbgeMz9f8w6K_WhNGZta5c",
-            authDomain: "weather-station-1b75f.firebaseapp.com",
-            databaseURL: "https://weather-station-1b75f-default-rtdb.firebaseio.com",
-            projectId: "weather-station-1b75f",
-            storageBucket: "weather-station-1b75f.firebasestorage.app",
-            messagingSenderId: "225927197582",
-            appId: "1:225927197582:web:28ce56f603ecd6da6e2adf",
-            measurementId: "G-7CQR07B407"
-        };
-        firebase.initializeApp(firebaseConfig);
-        var db = firebase.database();
+  <h1>🌤️ ESP8266 Weather Dashboard</h1>
 
-        function updateField(field, elementId) {
-            db.ref("/sensor/" + field).on("value", (snapshot) => {
-                document.getElementById(elementId).innerText = snapshot.val();
-            });
+  <div class="container">
+    <div class="card">
+      <p>🌡️ Temperature: <span id="temperature">Loading...</span> °C</p>
+      <div id="temp-alert" class="alert">Temperature too high!</div>
+      <canvas id="tempChart"></canvas>
+    </div>
+    
+    <div class="card">
+      <p>💧 Humidity: <span id="humidity">Loading...</span> %</p>
+      <canvas id="humidityChart"></canvas>
+    </div>
+    
+    <div class="card">
+      <p>🌬️ Pressure: <span id="pressure">Loading...</span> hPa</p>
+      <div id="pressure-alert" class="alert">Pressure out of range!</div>
+      <canvas id="pressureChart"></canvas>
+    </div>
+
+    <div class="card">
+      <p>🍃 Wind Speed: <span id="wind">Loading...</span> m/s</p>
+      <canvas id="windChart"></canvas>
+    </div>
+  </div>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyDs_XrrRUXFmlbgeMz9f8w6K_WhNGZta5c",
+      authDomain: "weather-station-1b75f.firebaseapp.com",
+      databaseURL: "https://weather-station-1b75f-default-rtdb.firebaseio.com",
+      projectId: "weather-station-1b75f",
+      storageBucket: "weather-station-1b75f.firebasestorage.app",
+      messagingSenderId: "225927197582",
+      appId: "1:225927197582:web:28ce56f603ecd6da6e2adf",
+      measurementId: "G-7CQR07B407"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    function updateField(field, elementId, alertId = null, options = {}) {
+      db.ref("/sensor/" + field).on("value", (snapshot) => {
+        const value = snapshot.val();
+        document.getElementById(elementId).innerText = value;
+
+        if (alertId && options?.threshold !== undefined) {
+          const alertElem = document.getElementById(alertId);
+          const condition = options.condition === "greater" ? value > options.threshold : value < options.threshold;
+          alertElem.style.display = condition ? "block" : "none";
         }
-        
-        updateField("temperature_dht", "temperature");
-        updateField("humidity", "humidity");
-        updateField("pressure", "pressure");
-        
-        var tempChartCtx = document.getElementById("tempChart").getContext("2d");
-        var humidityChartCtx = document.getElementById("humidityChart").getContext("2d");
-        var pressureChartCtx = document.getElementById("pressureChart").getContext("2d");
-        
-        var tempChart = new Chart(tempChartCtx, {
-            type: "line",
-            data: { labels: [], datasets: [{ label: "Temperature (°C)", data: [], borderColor: "red", fill: false }] },
-        });
-        
-        var humidityChart = new Chart(humidityChartCtx, {
-            type: "line",
-            data: { labels: [], datasets: [{ label: "Humidity (%)", data: [], borderColor: "blue", fill: false }] },
-        });
-        
-        var pressureChart = new Chart(pressureChartCtx, {
-            type: "line",
-            data: { labels: [], datasets: [{ label: "Pressure (hPa)", data: [], borderColor: "green", fill: false }] },
-        });
-        
-        function updateChart(chart, field) {
-            db.ref("/sensor/" + field).on("value", (snapshot) => {
-                let data = snapshot.val();
-                let now = new Date().toLocaleTimeString();
-                chart.data.labels.push(now);
-                chart.data.datasets[0].data.push(data);
-                if (chart.data.labels.length > 20) {
-                    chart.data.labels.shift();
-                    chart.data.datasets[0].data.shift();
-                }
-                chart.update();
-            });
+      });
+    }
+
+    updateField("temperature_dht", "temperature", "temp-alert", { threshold: 35, condition: "greater" });
+    updateField("humidity", "humidity");
+    updateField("pressure", "pressure", "pressure-alert", { threshold: 950, condition: "less" });
+    updateField("wind_speed", "wind");
+
+    const tempChart = new Chart(document.getElementById("tempChart").getContext("2d"), {
+      type: "line",
+      data: { labels: [], datasets: [{ label: "Temp (°C)", data: [], borderColor: "red", fill: false }] }
+    });
+
+    const humidityChart = new Chart(document.getElementById("humidityChart").getContext("2d"), {
+      type: "line",
+      data: { labels: [], datasets: [{ label: "Humidity (%)", data: [], borderColor: "blue", fill: false }] }
+    });
+
+    const pressureChart = new Chart(document.getElementById("pressureChart").getContext("2d"), {
+      type: "line",
+      data: { labels: [], datasets: [{ label: "Pressure (hPa)", data: [], borderColor: "green", fill: false }] }
+    });
+
+    const windChart = new Chart(document.getElementById("windChart").getContext("2d"), {
+      type: "line",
+      data: { labels: [], datasets: [{ label: "Wind Speed (m/s)", data: [], borderColor: "orange", fill: false }] }
+    });
+
+    function updateChart(chart, field) {
+      db.ref("/sensor/" + field).on("value", (snapshot) => {
+        const value = snapshot.val();
+        const now = new Date().toLocaleTimeString();
+        chart.data.labels.push(now);
+        chart.data.datasets[0].data.push(value);
+        if (chart.data.labels.length > 20) {
+          chart.data.labels.shift();
+          chart.data.datasets[0].data.shift();
         }
-        
-        updateChart(tempChart, "temperature_dht");
-        updateChart(humidityChart, "humidity");
-        updateChart(pressureChart, "pressure");
-    </script>
+        chart.update();
+      });
+    }
+
+    updateChart(tempChart, "temperature_dht");
+    updateChart(humidityChart, "humidity");
+    updateChart(pressureChart, "pressure");
+    updateChart(windChart, "wind_speed");
+  </script>
 </body>
 </html>
