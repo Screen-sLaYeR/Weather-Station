@@ -3,158 +3,92 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Weather Dashboard</title>
-
-  <!-- Firebase and Chart.js -->
-  <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-database.js"></script>
+  <title>Crane Weather Dashboard</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
   <style>
-    body {
-      font-family: 'Segoe UI', sans-serif;
-      background: #f4f6f8;
-      margin: 0;
-      padding: 20px;
-      color: #333;
-    }
-
-    h1 {
-      text-align: center;
-      color: #2c3e50;
-    }
-
-    .container {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: space-around;
-    }
-
-    .card {
-      background: white;
-      border-radius: 10px;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-      padding: 20px;
-      margin: 15px;
-      width: 300px;
-      text-align: center;
-    }
-
-    .alert {
-      background-color: #ffcccc;
-      color: #900;
-      font-weight: bold;
-      padding: 10px;
-      border-radius: 5px;
-      margin: 10px 0;
-      display: none;
-    }
-
-    canvas {
-      margin-top: 10px;
-      width: 100% !important;
-      height: 200px !important;
-    }
+    body { font-family: sans-serif; margin: 20px; background: #111; color: #eee; }
+    canvas { max-width: 100%; }
+    .card { background: #1e1e1e; padding: 20px; border-radius: 12px; box-shadow: 0 0 10px rgba(0,0,0,0.3); margin-bottom: 20px; }
+    .alert { background-color: #ff5555; padding: 10px 20px; border-radius: 8px; color: white; font-weight: bold; margin-top: 10px; }
   </style>
 </head>
 <body>
-  <h1>🌤️ ESP8266 Weather Dashboard</h1>
+  <h1>🚧 Crane-Mounted Weather Monitoring Dashboard</h1>
 
-  <div class="container">
-    <div class="card">
-      <p>🌡️ Temperature: <span id="temperature">Loading...</span> °C</p>
-      <div id="temp-alert" class="alert">Temperature too high!</div>
-      <canvas id="tempChart"></canvas>
-    </div>
-    
-    <div class="card">
-      <p>💧 Humidity: <span id="humidity">Loading...</span> %</p>
-      <canvas id="humidityChart"></canvas>
-    </div>
-    
-    <div class="card">
-      <p>🌬️ Pressure: <span id="pressure">Loading...</span> hPa</p>
-      <div id="pressure-alert" class="alert">Pressure out of range!</div>
-      <canvas id="pressureChart"></canvas>
-    </div>
+  <div class="card">
+    <h2>Temperature (°C)</h2>
+    <canvas id="tempChart"></canvas>
+    <div id="tempAlert"></div>
+  </div>
 
-    <div class="card">
-      <p>🍃 Wind Speed: <span id="wind">Loading...</span> m/s</p>
-      <canvas id="windChart"></canvas>
-    </div>
+  <div class="card">
+    <h2>Humidity (%)</h2>
+    <canvas id="humidityChart"></canvas>
+    <div id="humidityAlert"></div>
+  </div>
+
+  <div class="card">
+    <h2>Pressure (hPa)</h2>
+    <canvas id="pressureChart"></canvas>
+    <div id="pressureAlert"></div>
   </div>
 
   <script>
-    const firebaseConfig = {
-      apiKey: "AIzaSyDs_XrrRUXFmlbgeMz9f8w6K_WhNGZta5c",
-      authDomain: "weather-station-1b75f.firebaseapp.com",
-      databaseURL: "https://weather-station-1b75f-default-rtdb.firebaseio.com",
-      projectId: "weather-station-1b75f",
-      storageBucket: "weather-station-1b75f.firebasestorage.app",
-      messagingSenderId: "225927197582",
-      appId: "1:225927197582:web:28ce56f603ecd6da6e2adf",
-      measurementId: "G-7CQR07B407"
-    };
+    const maxDataPoints = 20;
+    const threshold = { temperature: 45, humidity: 80, pressure: 55 };
 
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.database();
-
-    function updateField(field, elementId, alertId = null, options = {}) {
-      db.ref("/sensor/" + field).on("value", (snapshot) => {
-        const value = snapshot.val();
-        document.getElementById(elementId).innerText = value;
-
-        if (alertId && options?.threshold !== undefined) {
-          const alertElem = document.getElementById(alertId);
-          const condition = options.condition === "greater" ? value > options.threshold : value < options.threshold;
-          alertElem.style.display = condition ? "block" : "none";
-        }
-      });
-    }
-
-    updateField("temperature_dht", "temperature", "temp-alert", { threshold: 35, condition: "greater" });
-    updateField("humidity", "humidity");
-    updateField("pressure", "pressure", "pressure-alert", { threshold: 950, condition: "less" });
-    updateField("wind_speed", "wind");
-
-    const tempChart = new Chart(document.getElementById("tempChart").getContext("2d"), {
-      type: "line",
-      data: { labels: [], datasets: [{ label: "Temp (°C)", data: [], borderColor: "red", fill: false }] }
+    const createChart = (ctx, label) => new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: [],
+        datasets: [{
+          label,
+          data: [],
+          borderColor: 'lime',
+          backgroundColor: 'rgba(0,255,0,0.1)',
+          tension: 0.3,
+        }]
+      },
+      options: {
+        scales: { y: { beginAtZero: true } },
+        responsive: true,
+        animation: false
+      }
     });
 
-    const humidityChart = new Chart(document.getElementById("humidityChart").getContext("2d"), {
-      type: "line",
-      data: { labels: [], datasets: [{ label: "Humidity (%)", data: [], borderColor: "blue", fill: false }] }
-    });
+    const tempChart = createChart(document.getElementById('tempChart'), 'Temperature');
+    const humidityChart = createChart(document.getElementById('humidityChart'), 'Humidity');
+    const pressureChart = createChart(document.getElementById('pressureChart'), 'Pressure');
 
-    const pressureChart = new Chart(document.getElementById("pressureChart").getContext("2d"), {
-      type: "line",
-      data: { labels: [], datasets: [{ label: "Pressure (hPa)", data: [], borderColor: "green", fill: false }] }
-    });
+    const updateCharts = () => {
+      const now = new Date().toLocaleTimeString();
+      const temp = +(20 + Math.random() * 40).toFixed(2);
+      const hum = +(30 + Math.random() * 50).toFixed(2);
+      const pres = +(30 + Math.random() * 20).toFixed(2);
 
-    const windChart = new Chart(document.getElementById("windChart").getContext("2d"), {
-      type: "line",
-      data: { labels: [], datasets: [{ label: "Wind Speed (m/s)", data: [], borderColor: "orange", fill: false }] }
-    });
-
-    function updateChart(chart, field) {
-      db.ref("/sensor/" + field).on("value", (snapshot) => {
-        const value = snapshot.val();
-        const now = new Date().toLocaleTimeString();
+      const pushData = (chart, val) => {
         chart.data.labels.push(now);
-        chart.data.datasets[0].data.push(value);
-        if (chart.data.labels.length > 20) {
+        chart.data.datasets[0].data.push(val);
+        if (chart.data.labels.length > maxDataPoints) {
           chart.data.labels.shift();
           chart.data.datasets[0].data.shift();
         }
         chart.update();
-      });
-    }
+      };
 
-    updateChart(tempChart, "temperature_dht");
-    updateChart(humidityChart, "humidity");
-    updateChart(pressureChart, "pressure");
-    updateChart(windChart, "wind_speed");
+      pushData(tempChart, temp);
+      pushData(humidityChart, hum);
+      pushData(pressureChart, pres);
+
+      document.getElementById('tempAlert').innerHTML =
+        temp > threshold.temperature ? `<div class="alert">⚠️ Temperature high: ${temp}°C</div>` : '';
+      document.getElementById('humidityAlert').innerHTML =
+        hum > threshold.humidity ? `<div class="alert">⚠️ Humidity high: ${hum}%</div>` : '';
+      document.getElementById('pressureAlert').innerHTML =
+        pres > threshold.pressure ? `<div class="alert">⚠️ Pressure high: ${pres} hPa</div>` : '';
+    };
+
+    setInterval(updateCharts, 5000);
   </script>
 </body>
 </html>
