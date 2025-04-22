@@ -2,27 +2,20 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Industrial Crane Weather Dashboard</title>
+  <title>Crane Weather Dashboard</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css" />
   <style>
     body {
-      font-family: 'Segoe UI', sans-serif;
+      font-family: Arial, sans-serif;
       background: linear-gradient(to bottom, #0f2027, #203a43, #2c5364);
       color: #eee;
       padding: 2rem;
       margin: 0;
     }
-    h1, h2, p {
-      text-align: center;
-    }
-    .status {
-      font-weight: bold;
-      text-align: center;
-      color: lime;
-      margin-bottom: 1rem;
-    }
+    h1, h2, p { text-align: center; }
+    .status { font-weight: bold; text-align: center; color: lime; margin-bottom: 1rem; }
     .grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
@@ -83,13 +76,11 @@
     <div class="card"><p>📈 Max Temperature</p><h2 id="maxTemp">-- °C</h2></div>
     <div class="card"><p>💧 Humidity</p><h2 id="humidity">-- %</h2></div>
     <div class="card"><p>🌪️ Wind Speed</p><h2 id="windSpeed">-- m/s</h2></div>
-    <div class="card"><p>🧭 Wind Direction</p>
-      <div class="compass"><div class="needle" id="needle"></div></div>
-    </div>
+    <div class="card"><p>🧭 Wind Direction</p><div class="compass"><div class="needle" id="needle"></div></div></div>
     <div class="card"><p>📈 Pressure</p><h2 id="pressure">-- hPa</h2></div>
-    <div class="card"><p>🌅 Sunrise</p><h2>06:15 AM</h2></div>
-    <div class="card"><p>☀️ UV Index</p><h2>7 (High)</h2></div>
-    <div class="card"><p>🌫️ Air Quality</p><h2>Moderate</h2></div>
+    <div class="card"><p>🌅 Sunrise</p><h2 id="sunriseCard">--:--</h2></div>
+    <div class="card"><p>☀️ UV Index</p><h2 id="uvCard">--</h2></div>
+    <div class="card"><p>🌫️ Air Quality</p><h2 id="aqiCard">--</h2></div>
   </div>
 
   <canvas id="temperatureChart"></canvas>
@@ -101,8 +92,22 @@
 
   <script>
     const FIREBASE_URL = "https://weather-station-1b75f-default-rtdb.firebaseio.com/sensor.json";
+    const API_KEY = 'YOUR_OPENWEATHERMAP_API_KEY';
+    const LAT = '19.0760';
+    const LON = '72.8777';
     const tempData = [], minTemps = [], maxTemps = [], labels = [];
     let fetchInterval;
+    let lastTimestamp = null;
+
+    const showToast = (msg, type = "info") => {
+      Toastify({
+        text: msg,
+        duration: 3000,
+        gravity: "top",
+        position: "center",
+        backgroundColor: type === "error" ? "#ff4444" : "#2ecc71"
+      }).showToast();
+    };
 
     const tempChart = new Chart(document.getElementById("temperatureChart"), {
       type: "line",
@@ -133,16 +138,22 @@
       try {
         const res = await fetch(FIREBASE_URL);
         const data = await res.json();
-        const now = new Date().toLocaleTimeString();
 
+        if (!data || data.timestamp === lastTimestamp) {
+          document.getElementById("firebaseStatus").innerText = "❌ ESP32 Disconnected";
+          showToast("⚠️ ESP32 stopped sending data.", "error");
+          clearInterval(fetchInterval);
+          return;
+        }
+
+        lastTimestamp = data.timestamp;
+        const now = new Date().toLocaleTimeString();
         updateText("temp", data.temperature_dht);
         updateText("humidity", data.humidity);
         updateText("pressure", data.pressure);
         updateText("windSpeed", data.wind_speed);
-
         updateNeedle(data.wind_direction);
 
-        // Calculate min/max for last 24 values (adjust as needed)
         const recent = [...tempData.slice(-24), data.temperature_dht];
         const min = Math.min(...recent);
         const max = Math.max(...recent);
@@ -167,9 +178,27 @@
         pressureChart.update();
 
         document.getElementById("firebaseStatus").innerText = "Connected ✅";
+
+        const weatherRes = await fetch(`https://api.openweathermap.org/data/2.5/onecall?lat=${LAT}&lon=${LON}&exclude=minutely,hourly,daily,alerts&appid=${API_KEY}&units=metric`);
+        const weatherData = await weatherRes.json();
+
+        const sunrise = new Date(weatherData.current.sunrise * 1000).toLocaleTimeString();
+        const uv = weatherData.current.uvi;
+
+        const aqiRes = await fetch(`https://api.openweathermap.org/data/2.5/air_pollution?lat=${LAT}&lon=${LON}&appid=${API_KEY}`);
+        const aqiData = await aqiRes.json();
+        const aqi = aqiData.list[0].main.aqi;
+        const aqiText = ["Good", "Fair", "Moderate", "Poor", "Very Poor"];
+
+        document.getElementById("sunriseCard").innerText = `Sunrise: ${sunrise}`;
+        document.getElementById("uvCard").innerText = `UV Index: ${uv}`;
+        document.getElementById("aqiCard").innerText = aqiText[aqi - 1];
+
       } catch (err) {
         document.getElementById("firebaseStatus").innerText = "❌ Disconnected";
-        console.error("Error fetching from Firebase", err);
+        showToast("❌ Failed to fetch data.", "error");
+        clearInterval(fetchInterval);
+        console.error("Error fetching data", err);
       }
     }
 
