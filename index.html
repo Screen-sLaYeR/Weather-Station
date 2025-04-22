@@ -1,94 +1,122 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta charset="UTF-8">
   <title>Crane Weather Dashboard</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
-    body { font-family: sans-serif; margin: 20px; background: #111; color: #eee; }
-    canvas { max-width: 100%; }
-    .card { background: #1e1e1e; padding: 20px; border-radius: 12px; box-shadow: 0 0 10px rgba(0,0,0,0.3); margin-bottom: 20px; }
-    .alert { background-color: #ff5555; padding: 10px 20px; border-radius: 8px; color: white; font-weight: bold; margin-top: 10px; }
+    body {
+      background: #111;
+      color: #eee;
+      font-family: Arial, sans-serif;
+      padding: 2rem;
+    }
+    h1, h2, p {
+      text-align: center;
+    }
+    .chart-container {
+      background: #1e1e1e;
+      padding: 1.5rem;
+      border-radius: 12px;
+      margin: 2rem auto;
+      max-width: 700px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+    }
+    .alert {
+      background-color: #ff4444;
+      padding: 0.8rem;
+      border-radius: 8px;
+      color: white;
+      font-weight: bold;
+      text-align: center;
+      margin-top: 1rem;
+    }
   </style>
 </head>
 <body>
-  <h1>🚧 Crane-Mounted Weather Monitoring Dashboard</h1>
+  <h1>🚧 Crane Weather Monitoring Dashboard</h1>
+  <p>Real-time environmental monitoring on crane-mounted sensors (ESP32). Updated every 5 seconds from Firebase.</p>
 
-  <div class="card">
-    <h2>Temperature (°C)</h2>
+  <div class="chart-container">
+    <h2>Temperature from DHT Sensor (°C)</h2>
     <canvas id="tempChart"></canvas>
     <div id="tempAlert"></div>
   </div>
 
-  <div class="card">
-    <h2>Humidity (%)</h2>
+  <div class="chart-container">
+    <h2>Humidity Level (%)</h2>
     <canvas id="humidityChart"></canvas>
     <div id="humidityAlert"></div>
   </div>
 
-  <div class="card">
-    <h2>Pressure (hPa)</h2>
+  <div class="chart-container">
+    <h2>Barometric Pressure (hPa)</h2>
     <canvas id="pressureChart"></canvas>
     <div id="pressureAlert"></div>
   </div>
 
   <script>
-    const maxDataPoints = 20;
-    const threshold = { temperature: 45, humidity: 80, pressure: 55 };
-
-    const createChart = (ctx, label) => new Chart(ctx, {
-      type: 'line',
-      data: {
-        labels: [],
-        datasets: [{
-          label,
-          data: [],
-          borderColor: 'lime',
-          backgroundColor: 'rgba(0,255,0,0.1)',
-          tension: 0.3,
-        }]
-      },
-      options: {
-        scales: { y: { beginAtZero: true } },
-        responsive: true,
-        animation: false
-      }
-    });
-
-    const tempChart = createChart(document.getElementById('tempChart'), 'Temperature');
-    const humidityChart = createChart(document.getElementById('humidityChart'), 'Humidity');
-    const pressureChart = createChart(document.getElementById('pressureChart'), 'Pressure');
-
-    const updateCharts = () => {
-      const now = new Date().toLocaleTimeString();
-      const temp = +(20 + Math.random() * 40).toFixed(2);
-      const hum = +(30 + Math.random() * 50).toFixed(2);
-      const pres = +(30 + Math.random() * 20).toFixed(2);
-
-      const pushData = (chart, val) => {
-        chart.data.labels.push(now);
-        chart.data.datasets[0].data.push(val);
-        if (chart.data.labels.length > maxDataPoints) {
-          chart.data.labels.shift();
-          chart.data.datasets[0].data.shift();
-        }
-        chart.update();
-      };
-
-      pushData(tempChart, temp);
-      pushData(humidityChart, hum);
-      pushData(pressureChart, pres);
-
-      document.getElementById('tempAlert').innerHTML =
-        temp > threshold.temperature ? `<div class="alert">⚠️ Temperature high: ${temp}°C</div>` : '';
-      document.getElementById('humidityAlert').innerHTML =
-        hum > threshold.humidity ? `<div class="alert">⚠️ Humidity high: ${hum}%</div>` : '';
-      document.getElementById('pressureAlert').innerHTML =
-        pres > threshold.pressure ? `<div class="alert">⚠️ Pressure high: ${pres} hPa</div>` : '';
+    const MAX_POINTS = 20;
+    const threshold = {
+      temperature_dht: 45,
+      humidity: 80,
+      pressure: 55
     };
 
-    setInterval(updateCharts, 5000);
+    const labels = [];
+
+    const tempChart = new Chart(document.getElementById('tempChart'), {
+      type: 'line',
+      data: { labels, datasets: [{ label: 'Temperature (°C)', data: [], borderColor: 'orange', fill: true }] },
+      options: { scales: { y: { beginAtZero: true } }, animation: false }
+    });
+
+    const humidityChart = new Chart(document.getElementById('humidityChart'), {
+      type: 'line',
+      data: { labels, datasets: [{ label: 'Humidity (%)', data: [], borderColor: 'cyan', fill: true }] },
+      options: { scales: { y: { beginAtZero: true } }, animation: false }
+    });
+
+    const pressureChart = new Chart(document.getElementById('pressureChart'), {
+      type: 'line',
+      data: { labels, datasets: [{ label: 'Pressure (hPa)', data: [], borderColor: 'lime', fill: true }] },
+      options: { scales: { y: { beginAtZero: true } }, animation: false }
+    });
+
+    async function fetchData() {
+      try {
+        const response = await fetch("https://weather-station-1b75f-default-rtdb.firebaseio.com/sensor.json");
+        const data = await response.json();
+        const now = new Date().toLocaleTimeString();
+
+        updateChart(tempChart, data.temperature_dht, now, 'tempAlert', threshold.temperature_dht, 'Temperature');
+        updateChart(humidityChart, data.humidity, now, 'humidityAlert', threshold.humidity, 'Humidity');
+        updateChart(pressureChart, data.pressure, now, 'pressureAlert', threshold.pressure, 'Pressure');
+
+      } catch (err) {
+        console.error("Failed to fetch data:", err);
+      }
+    }
+
+    function updateChart(chart, value, label, alertId, limit, labelText) {
+      chart.data.labels.push(label);
+      chart.data.datasets[0].data.push(value);
+      if (chart.data.labels.length > MAX_POINTS) {
+        chart.data.labels.shift();
+        chart.data.datasets[0].data.shift();
+      }
+      chart.update();
+
+      const alertBox = document.getElementById(alertId);
+      if (value > limit) {
+        alertBox.innerHTML = `<div class="alert">⚠️ ${labelText} Alert! ${value} exceeds threshold ${limit}</div>`;
+      } else {
+        alertBox.innerHTML = '';
+      }
+    }
+
+    setInterval(fetchData, 5000);
+    fetchData(); // initial fetch
   </script>
 </body>
 </html>
