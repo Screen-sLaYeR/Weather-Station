@@ -1,4 +1,3 @@
-<!-- Save this as index.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -66,7 +65,7 @@
   <script>
     const FIREBASE_URL = "https://weather-station-1b75f-default-rtdb.firebaseio.com/sensor.json";
     const labels = [], tempData = [];
-    let lastUpdate = Date.now(), connected = false, lastTimestamp = null;
+    let connected = false, lastTimestamp = null;
 
     const showToast = (msg, type = "info") => {
       Toastify({
@@ -96,52 +95,53 @@
         const res = await fetch(FIREBASE_URL);
         const data = await res.json();
 
-        if (!data || data.timestamp === lastTimestamp) return;
+        if (!data || !data.timestamp) return;
 
-        lastTimestamp = data.timestamp;
-        lastUpdate = Date.now();
+        const nowUnix = Math.floor(Date.now() / 1000);
+        const delaySec = nowUnix - data.timestamp;
 
-        if (!connected) {
-          connected = true;
-          document.getElementById("firebaseStatus").innerText = "✅ Connected";
-          showToast("ESP32 Connected");
+        if (delaySec < 10) {
+          if (!connected) {
+            connected = true;
+            showToast("ESP32 Connected");
+            document.getElementById("firebaseStatus").innerText = "✅ Connected";
+          }
+
+          updateText("temp", data.temperature_dht, "°C");
+          updateText("humidity", data.humidity, "%");
+          updateText("pressure", data.pressure, "hPa");
+
+          const timeLabel = new Date().toLocaleTimeString();
+          labels.push(timeLabel);
+          tempData.push(data.temperature_dht);
+
+          if (labels.length > 30) {
+            labels.shift(); tempData.shift();
+          }
+          temperatureChart.update();
+        } else {
+          handleDisconnect();
         }
 
-        const now = new Date().toLocaleTimeString();
-        updateText("temp", data.temperature_dht, "°C");
-        updateText("humidity", data.humidity, "%");
-        updateText("pressure", data.pressure, "hPa");
-
-        labels.push(now);
-        tempData.push(data.temperature_dht);
-        if (labels.length > 30) {
-          labels.shift(); tempData.shift();
-        }
-        temperatureChart.update();
       } catch (err) {
-        document.getElementById("firebaseStatus").innerText = "❌ Disconnected";
-        showToast("Failed to fetch from Firebase", "error");
+        handleDisconnect();
       }
     }
 
-    const checkESPStatus = () => {
-      const now = Date.now();
-      if (now - lastUpdate > 7000 && connected) {
+    function handleDisconnect() {
+      if (connected) {
         connected = false;
+        showToast("ESP32 Disconnected", "error");
         document.getElementById("firebaseStatus").innerText = "❌ ESP32 Disconnected";
-        showToast("No data received", "error");
-
         updateText("temp", "--", "°C");
         updateText("humidity", "--", "%");
         updateText("pressure", "--", "hPa");
       }
-    };
+    }
 
     function reconnect() {
-      setInterval(() => {
-        fetchData();
-        checkESPStatus();
-      }, 5000);
+      fetchData();
+      setInterval(fetchData, 5000);
     }
 
     function exportCSV() {
