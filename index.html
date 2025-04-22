@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>Crane Weather Dashboard</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
@@ -14,15 +14,8 @@
       padding: 2rem;
       margin: 0;
     }
-    h1, h2, p {
-      text-align: center;
-    }
-    .status {
-      font-weight: bold;
-      text-align: center;
-      color: lime;
-      margin-bottom: 1rem;
-    }
+    h1, h2, p { text-align: center; }
+    .status { font-weight: bold; text-align: center; color: lime; margin-bottom: 1rem; }
     .card-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -30,71 +23,40 @@
       margin-top: 2rem;
     }
     .card {
-      background: rgba(255, 255, 255, 0.05);
+      background: rgba(255,255,255,0.05);
       padding: 1rem;
       border-radius: 12px;
       text-align: center;
       box-shadow: 0 0 10px rgba(0,0,0,0.3);
     }
-    .icon-card {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 10px;
-    }
-    .icon-card img {
-      width: 24px;
-      height: 24px;
-    }
+    .icon-card { display: flex; align-items: center; justify-content: center; gap: 10px; }
+    .icon-card img { width: 24px; height: 24px; }
     canvas {
-      background: #1e1e1e;
-      padding: 1rem;
-      border-radius: 10px;
-      margin-top: 2rem;
-      width: 100%;
+      background: #1e1e1e; padding: 1rem;
+      border-radius: 10px; margin-top: 2rem; width: 100%;
     }
     .export-btn, .reconnect-btn {
-      display: block;
-      margin: 20px auto;
-      padding: 10px 20px;
-      background: #2d88ff;
-      color: white;
-      border: none;
-      border-radius: 10px;
-      cursor: pointer;
+      display: block; margin: 20px auto;
+      padding: 10px 20px; color: white;
+      border: none; border-radius: 10px; cursor: pointer;
     }
-    .reconnect-btn {
-      background: #e67e22;
-    }
-    .countdown {
-      text-align: center;
-      margin-top: -10px;
-      font-size: 0.9em;
-      color: #ffd700;
-    }
+    .export-btn { background: #2d88ff; }
+    .reconnect-btn { background: #e67e22; }
+    .countdown { text-align: center; font-size: 0.9em; color: #ffd700; margin-top: -10px; }
     .compass {
-      width: 150px;
-      height: 150px;
-      border: 5px solid #eee;
-      border-radius: 50%;
-      position: relative;
-      margin: 2rem auto;
+      width: 150px; height: 150px;
+      border: 5px solid #eee; border-radius: 50%;
+      position: relative; margin: 2rem auto;
       background: rgba(255,255,255,0.05);
     }
     .needle {
-      width: 2px;
-      height: 70px;
-      background: red;
-      position: absolute;
-      top: 5px;
-      left: 50%;
+      width: 2px; height: 70px; background: red;
+      position: absolute; top: 5px; left: 50%;
       transform-origin: bottom center;
-      transform: rotate(0deg);
     }
   </style>
 </head>
 <body>
-
   <h1>🌤️ Crane Weather Station</h1>
   <p class="status" id="firebaseStatus">Connecting to Firebase...</p>
   <p class="countdown" id="retryTimer"></p>
@@ -107,9 +69,9 @@
   </div>
 
   <div class="card-grid">
-    <div class="card icon-card"><img src="https://img.icons8.com/color/48/sunrise.png" /><p id="sunrise">Sunrise: --:--</p></div>
-    <div class="card icon-card"><img src="https://img.icons8.com/color/48/sun--v1.png" /><p id="uvIndex">UV Index: --</p></div>
-    <div class="card icon-card"><img src="https://img.icons8.com/color/48/fog-day.png" /><p id="airQuality">Air Quality: --</p></div>
+    <div class="card icon-card"><img src="https://img.icons8.com/color/48/sunrise.png"/><p id="sunrise">Sunrise: --:--</p></div>
+    <div class="card icon-card"><img src="https://img.icons8.com/color/48/sun--v1.png"/><p id="uvIndex">UV Index: --</p></div>
+    <div class="card icon-card"><img src="https://img.icons8.com/color/48/fog-day.png"/><p id="airQuality">Air Quality: --</p></div>
   </div>
 
   <div class="card" style="max-width: 300px; margin: 2rem auto;">
@@ -125,12 +87,14 @@
   <button class="reconnect-btn" onclick="reconnect()">🔄 Reconnect</button>
 
   <script>
+    const FIREBASE_URL = "https://weather-station-1b75f-default-rtdb.firebaseio.com/sensor.json"; // 🔁 REPLACE THIS!
+
     const maxPoints = 20;
     const history = [];
     let fetchInterval;
     let lastTimestamp = null;
-    let retryCountdown = 30;
     let countdownInterval;
+    let retryCountdown = 30;
 
     const toast = (msg, type = "info") => {
       Toastify({
@@ -162,14 +126,14 @@
 
     async function fetchData() {
       try {
-        const res = await fetch("https://weather-station-1b75f-default-rtdb.firebaseio.com/sensor.json");
+        const res = await fetch(FIREBASE_URL);
         if (!res.ok) throw new Error("Disconnected");
 
         const data = await res.json();
         const currentTimestamp = data.timestamp;
 
         if (lastTimestamp && currentTimestamp === lastTimestamp) {
-          disconnect("⚠️ ESP32 Disconnected (No new timestamp)");
+          disconnect("⚠️ ESP32 Disconnected (No update)");
           return;
         }
 
@@ -183,7 +147,6 @@
         updateReading("pressure", data.pressure, pressureChart, now);
         updateWind(data.wind_speed, data.wind_direction);
 
-        // Mock data
         document.getElementById("sunrise").textContent = "Sunrise: 06:15 AM";
         document.getElementById("uvIndex").textContent = "UV Index: 7 (High)";
         document.getElementById("airQuality").textContent = "Air Quality: Moderate";
@@ -199,7 +162,7 @@
 
         toast("✅ Sensor data updated");
       } catch (err) {
-        disconnect("❌ Failed to fetch data");
+        disconnect("❌ Failed to fetch from Firebase");
       }
     }
 
@@ -258,8 +221,7 @@
       link.click();
     }
 
-    // Start fetching
-    reconnect();
+    reconnect(); // Start fetching on load
   </script>
 </body>
 </html>
