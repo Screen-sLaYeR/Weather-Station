@@ -1,73 +1,108 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>Crane Weather Dashboard</title>
+  <meta charset="UTF-8">
+  <title>🌤️ Crane Weather Dashboard</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css" />
+  <script src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
   <style>
     body {
       font-family: Arial, sans-serif;
-      background: #111;
+      background: linear-gradient(to bottom, #0f2027, #203a43, #2c5364);
       color: #eee;
       padding: 2rem;
+      margin: 0;
     }
     h1, h2, p {
       text-align: center;
     }
-    .section {
-      background: #1e1e1e;
-      padding: 1.5rem;
-      margin: 2rem auto;
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      margin-top: 2rem;
+    }
+    .card {
+      background: rgba(255, 255, 255, 0.05);
+      padding: 1rem;
       border-radius: 12px;
-      max-width: 700px;
+      text-align: center;
       box-shadow: 0 0 10px rgba(0,0,0,0.3);
+    }
+    .card p {
+      margin: 0.5rem 0;
+    }
+    canvas {
+      max-width: 100%;
+      background: #1e1e1e;
+      padding: 1rem;
+      border-radius: 10px;
     }
     .alert {
       background-color: #ff5555;
       padding: 10px;
       border-radius: 8px;
       text-align: center;
-      margin-top: 1rem;
+      margin: 10px auto;
+      width: fit-content;
     }
     .status {
       text-align: center;
       color: lime;
       margin-bottom: 1rem;
     }
-    button {
-      background-color: #2d88ff;
-      color: white;
-      padding: 10px 20px;
-      border-radius: 10px;
-      border: none;
-      margin: 0 auto;
+    .export-btn {
       display: block;
+      margin: 20px auto;
+      padding: 10px 20px;
+      background: #2d88ff;
+      color: white;
+      border: none;
+      border-radius: 10px;
       cursor: pointer;
     }
   </style>
 </head>
 <body>
-  <h1>🚧 Crane Weather Monitoring Dashboard</h1>
-  <p>Live sensor readings from crane-mounted ESP32 devices. Updates every 5 seconds.</p>
-  <div class="status" id="firebaseStatus">Connecting to Firebase...</div>
-  <button onclick="exportCSV()">📥 Export CSV</button>
+  <h1>🌤️ Crane Weather Station</h1>
+  <p>Location: Mumbai, India | Updates every 5 seconds</p>
+  <p class="status" id="firebaseStatus">Connecting to Firebase...</p>
 
-  <div class="section">
+  <div class="card-grid">
+    <div class="card">
+      <p>Pressure</p>
+      <h2 id="pressure">-- hPa</h2>
+    </div>
+    <div class="card">
+      <p>Rainfall</p>
+      <h2>0 mm</h2>
+    </div>
+    <div class="card">
+      <p>Temperature OUT</p>
+      <h2 id="temp">-- °C</h2>
+    </div>
+    <div class="card">
+      <p>Humidity OUT</p>
+      <h2 id="humidity">-- %</h2>
+    </div>
+  </div>
+
+  <button class="export-btn" onclick="exportCSV()">📥 Export CSV</button>
+
+  <div style="margin-top: 2rem;">
     <h2>Temperature from DHT Sensor (°C)</h2>
     <canvas id="tempChart"></canvas>
-    <div id="tempAlert"></div>
   </div>
 
-  <div class="section">
+  <div>
     <h2>Humidity Level (%)</h2>
     <canvas id="humidityChart"></canvas>
-    <div id="humidityAlert"></div>
   </div>
 
-  <div class="section">
+  <div>
     <h2>Barometric Pressure (hPa)</h2>
     <canvas id="pressureChart"></canvas>
-    <div id="pressureAlert"></div>
   </div>
 
   <script>
@@ -77,10 +112,13 @@
       humidity: 80,
       pressure: 55
     };
-
     const history = [];
-
     const labels = [];
+
+    const toast = (msg) => {
+      Toastify({ text: msg, duration: 3000, gravity: "top", position: "center", backgroundColor: "#ff5555" }).showToast();
+    };
+
     const tempChart = new Chart(document.getElementById('tempChart'), {
       type: 'line',
       data: { labels, datasets: [{ label: 'Temperature (°C)', data: [], borderColor: 'orange', fill: true }] },
@@ -102,40 +140,44 @@
     async function fetchData() {
       try {
         const res = await fetch("https://weather-station-1b75f-default-rtdb.firebaseio.com/sensor.json");
-        if (!res.ok) throw new Error("Fetch failed");
-
+        if (!res.ok) throw new Error("Failed to fetch");
         document.getElementById("firebaseStatus").textContent = "Connected ✅";
 
         const data = await res.json();
         const time = new Date().toLocaleTimeString();
+        updateCharts(data, time);
 
-        updateChart(tempChart, data.temperature_dht, time, "tempAlert", "Temperature", threshold.temperature_dht);
-        updateChart(humidityChart, data.humidity, time, "humidityAlert", "Humidity", threshold.humidity);
-        updateChart(pressureChart, data.pressure, time, "pressureAlert", "Pressure", threshold.pressure);
-
-        const payload = {
+        const entry = {
           timestamp: new Date().toISOString(),
-          temperature_dht: data.temperature_dht,
+          temperature: data.temperature_dht,
           humidity: data.humidity,
           pressure: data.pressure
         };
-
-        history.push(payload);
-
-        // Push to Firebase history
+        history.push(entry);
         await fetch("https://weather-station-1b75f-default-rtdb.firebaseio.com/history.json", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload)
+          body: JSON.stringify(entry)
         });
 
       } catch (err) {
         document.getElementById("firebaseStatus").textContent = "Disconnected ❌";
-        console.error("Firebase fetch error:", err);
+        toast("Failed to fetch data from Firebase");
+        console.error(err);
       }
     }
 
-    function updateChart(chart, value, label, alertId, labelText, limit) {
+    function updateCharts(data, time) {
+      document.getElementById("temp").textContent = `${data.temperature_dht} °C`;
+      document.getElementById("humidity").textContent = `${data.humidity} %`;
+      document.getElementById("pressure").textContent = `${data.pressure} hPa`;
+
+      pushData(tempChart, data.temperature_dht, time, threshold.temperature_dht, "Temperature");
+      pushData(humidityChart, data.humidity, time, threshold.humidity, "Humidity");
+      pushData(pressureChart, data.pressure, time, threshold.pressure, "Pressure");
+    }
+
+    function pushData(chart, value, label, limit, labelText) {
       chart.data.labels.push(label);
       chart.data.datasets[0].data.push(value);
       if (chart.data.labels.length > maxPoints) {
@@ -144,18 +186,15 @@
       }
       chart.update();
 
-      const alert = document.getElementById(alertId);
       if (value > limit) {
-        alert.innerHTML = `<div class="alert">⚠️ ${labelText} Alert! ${value} exceeds ${limit}</div>`;
-      } else {
-        alert.innerHTML = '';
+        toast(`⚠️ ${labelText} Alert! ${value} > ${limit}`);
       }
     }
 
     function exportCSV() {
       let csv = "Timestamp,Temperature,Humidity,Pressure\n";
-      history.forEach(entry => {
-        csv += `${entry.timestamp},${entry.temperature_dht},${entry.humidity},${entry.pressure}\n`;
+      history.forEach(e => {
+        csv += `${e.timestamp},${e.temperature},${e.humidity},${e.pressure}\n`;
       });
       const blob = new Blob([csv], { type: "text/csv" });
       const url = URL.createObjectURL(blob);
@@ -166,7 +205,7 @@
     }
 
     setInterval(fetchData, 5000);
-    fetchData(); // Initial load
+    fetchData();
   </script>
 </body>
 </html>
