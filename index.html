@@ -1,162 +1,359 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <title>Crane Weather Dashboard</title>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css" />
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: linear-gradient(to bottom, #0f2027, #203a43, #2c5364);
-      color: #eee;
-      padding: 2rem;
-    }
-    h1, p { text-align: center; }
-    .status { text-align: center; font-weight: bold; margin-top: 10px; }
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 1rem;
-      margin: 2rem 0;
-    }
-    .card {
-      background: rgba(255,255,255,0.05);
-      padding: 1rem;
-      border-radius: 12px;
-      text-align: center;
-      box-shadow: 0 0 10px rgba(0,0,0,0.3);
-    }
-    canvas {
-      background: #1e1e1e;
-      border-radius: 12px;
-      margin-top: 1.5rem;
-      padding: 1rem;
-    }
-    .btn {
-      margin: 1rem;
-      padding: 10px 20px;
-      background: #2d88ff;
-      color: white;
-      border: none;
-      border-radius: 10px;
-      cursor: pointer;
-    }
-  </style>
-</head>
-<body>
-  <h1>🏗️ Crane Weather Dashboard</h1>
-  <p class="status" id="firebaseStatus">Connecting...</p>
-
-  <div class="grid">
-    <div class="card"><p>🌡️ Temperature</p><h2 id="temp">-- °C</h2></div>
-    <div class="card"><p>💧 Humidity</p><h2 id="humidity">-- %</h2></div>
-    <div class="card"><p>📈 Pressure</p><h2 id="pressure">-- hPa</h2></div>
-  </div>
-
-  <canvas id="temperatureChart"></canvas>
-
-  <div style="text-align: center;">
-    <button class="btn" onclick="exportCSV()">📥 Export CSV</button>
-    <button class="btn" onclick="reconnect()">🔄 Reconnect</button>
-  </div>
-
-  <script>
-    const FIREBASE_URL = "https://weather-station-1b75f-default-rtdb.firebaseio.com/sensor.json";
-    const labels = [], tempData = [];
-    let connected = false, lastTimestamp = null;
-
-    const showToast = (msg, type = "info") => {
-      Toastify({
-        text: msg,
-        duration: 3000,
-        gravity: "top",
-        position: "center",
-        backgroundColor: type === "error" ? "#ff4444" : "#2ecc71"
-      }).showToast();
-    };
-
-    const temperatureChart = new Chart(document.getElementById("temperatureChart"), {
-      type: "line",
-      data: {
-        labels,
-        datasets: [{ label: "Temperature (°C)", data: tempData, borderColor: "orange", fill: false }]
-      },
-      options: { scales: { y: { beginAtZero: false } } }
-    });
-
-    const updateText = (id, val, unit) => {
-      document.getElementById(id).innerText = `${val} ${unit}`;
-    };
-
-    async function fetchData() {
-      try {
-        const res = await fetch(FIREBASE_URL);
-        const data = await res.json();
-
-        if (!data || !data.timestamp) return;
-
-        const nowUnix = Math.floor(Date.now() / 1000);
-        const delaySec = nowUnix - data.timestamp;
-
-        if (delaySec < 10) {
-          if (!connected) {
-            connected = true;
-            showToast("ESP32 Connected");
-            document.getElementById("firebaseStatus").innerText = "✅ Connected";
-          }
-
-          updateText("temp", data.temperature_dht, "°C");
-          updateText("humidity", data.humidity, "%");
-          updateText("pressure", data.pressure, "hPa");
-
-          const timeLabel = new Date().toLocaleTimeString();
-          labels.push(timeLabel);
-          tempData.push(data.temperature_dht);
-
-          if (labels.length > 30) {
-            labels.shift(); tempData.shift();
-          }
-          temperatureChart.update();
-        } else {
-          handleDisconnect();
-        }
-
-      } catch (err) {
-        handleDisconnect();
-      }
-    }
-
-    function handleDisconnect() {
-      if (connected) {
-        connected = false;
-        showToast("ESP32 Disconnected", "error");
-        document.getElementById("firebaseStatus").innerText = "❌ ESP32 Disconnected";
-        updateText("temp", "--", "°C");
-        updateText("humidity", "--", "%");
-        updateText("pressure", "--", "hPa");
-      }
-    }
-
-    function reconnect() {
-      fetchData();
-      setInterval(fetchData, 5000);
-    }
-
-    function exportCSV() {
-      let csv = "Time,Temperature\n";
-      for (let i = 0; i < labels.length; i++) {
-        csv += `${labels[i]},${tempData[i]}\n`;
-      }
-      const blob = new Blob([csv], { type: "text/csv" });
-      const link = document.createElement("a");
-      link.href = URL.createObjectURL(blob);
-      link.download = "weather_data.csv";
-      link.click();
-    }
-
-    reconnect();
-  </script>
-</body>
-</html>
+ <html lang="en">
+ <head>
+   <meta charset="UTF-8" />
+   <title>Crane Weather Dashboard</title>
+   <meta charset="UTF-8">
+   <title>Industrial Crane Weather Dashboard</title>
+   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+   <script src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
+   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css" />
+   <style>
+     body {
+       font-family: Arial, sans-serif;
+       font-family: 'Segoe UI', sans-serif;
+       background: linear-gradient(to bottom, #0f2027, #203a43, #2c5364);
+       color: #eee;
+       padding: 2rem;
+       margin: 0;
+     }
+     h1, h2, p { text-align: center; }
+     .status { font-weight: bold; text-align: center; color: lime; margin-bottom: 1rem; }
+     .card-grid {
+     h1, h2, p {
+       text-align: center;
+     }
+     .status {
+       font-weight: bold;
+       text-align: center;
+       color: lime;
+       margin-bottom: 1rem;
+     }
+     .grid {
+       display: grid;
+       grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+       grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+       gap: 1rem;
+       margin-top: 2rem;
+     }
+     .card {
+       background: rgba(255,255,255,0.05);
+       padding: 1rem;
+       border-radius: 12px;
+       text-align: center;
+       box-shadow: 0 0 10px rgba(0,0,0,0.3);
+       text-align: center;
+     }
+     .icon-card { display: flex; align-items: center; justify-content: center; gap: 10px; }
+     .icon-card img { width: 24px; height: 24px; }
+     canvas {
+       background: #1e1e1e; padding: 1rem;
+       border-radius: 10px; margin-top: 2rem; width: 100%;
+       background: #1e1e1e;
+       padding: 1rem;
+       border-radius: 10px;
+       margin-top: 2rem;
+       width: 100%;
+     }
+     .export-btn, .reconnect-btn {
+       display: block; margin: 20px auto;
+       padding: 10px 20px; color: white;
+       border: none; border-radius: 10px; cursor: pointer;
+     .needle {
+       width: 2px;
+       height: 70px;
+       background: red;
+       position: absolute;
+       top: 5px;
+       left: 50%;
+       transform-origin: bottom center;
+     }
+     .export-btn { background: #2d88ff; }
+     .reconnect-btn { background: #e67e22; }
+     .countdown { text-align: center; font-size: 0.9em; color: #ffd700; margin-top: -10px; }
+     .compass {
+       width: 150px; height: 150px;
+       border: 5px solid #eee; border-radius: 50%;
+       position: relative; margin: 2rem auto;
+       background: rgba(255,255,255,0.05);
+       width: 150px;
+       height: 150px;
+       border: 5px solid #eee;
+       border-radius: 50%;
+       margin: 1rem auto;
+       position: relative;
+       background: rgba(255,255,255,0.1);
+     }
+     .needle {
+       width: 2px; height: 70px; background: red;
+       position: absolute; top: 5px; left: 50%;
+       transform-origin: bottom center;
+     .btn {
+       display: inline-block;
+       margin: 1rem auto;
+       padding: 10px 20px;
+       background: #2d88ff;
+       color: white;
+       border: none;
+       border-radius: 10px;
+       cursor: pointer;
+     }
+   </style>
+ </head>
+ <body>
+   <h1>🌤️ Crane Weather Station</h1>
+   <p class="status" id="firebaseStatus">Connecting to Firebase...</p>
+   <p class="countdown" id="retryTimer"></p>
+   <h1>🏗️ Crane Weather Monitoring Dashboard</h1>
+   <p class="status" id="firebaseStatus">Connecting...</p>
+ 
+   <div class="card-grid">
+   <div class="grid">
+     <div class="card"><p>🌡️ Temperature</p><h2 id="temp">-- °C</h2></div>
+     <div class="card"><p>📉 Min Temperature</p><h2 id="minTemp">-- °C</h2></div>
+     <div class="card"><p>📈 Max Temperature</p><h2 id="maxTemp">-- °C</h2></div>
+     <div class="card"><p>💧 Humidity</p><h2 id="humidity">-- %</h2></div>
+     <div class="card"><p>📈 Pressure</p><h2 id="pressure">-- hPa</h2></div>
+     <div class="card"><p>🌪️ Wind Speed</p><h2 id="windSpeed">-- m/s</h2></div>
+     <div class="card"><p>🧭 Wind Direction</p>
+       <div class="compass"><div class="needle" id="needle"></div></div>
+     </div>
+     <div class="card"><p>📈 Pressure</p><h2 id="pressure">-- hPa</h2></div>
+     <div class="card"><p>🌅 Sunrise</p><h2>06:15 AM</h2></div>
+     <div class="card"><p>☀️ UV Index</p><h2>7 (High)</h2></div>
+     <div class="card"><p>🌫️ Air Quality</p><h2>Moderate</h2></div>
+   </div>
+ 
+   <div class="card-grid">
+     <div class="card icon-card"><img src="https://img.icons8.com/color/48/sunrise.png"/><p id="sunrise">Sunrise: --:--</p></div>
+     <div class="card icon-card"><img src="https://img.icons8.com/color/48/sun--v1.png"/><p id="uvIndex">UV Index: --</p></div>
+     <div class="card icon-card"><img src="https://img.icons8.com/color/48/fog-day.png"/><p id="airQuality">Air Quality: --</p></div>
+   </div>
+ 
+   <div class="card" style="max-width: 300px; margin: 2rem auto;">
+     <p>🧭 Wind Direction</p>
+     <div class="compass"><div class="needle" id="needle"></div></div>
+   </div>
+ 
+   <canvas id="tempChart"></canvas>
+   <canvas id="temperatureChart"></canvas>
+   <canvas id="humidityChart"></canvas>
+   <canvas id="pressureChart"></canvas>
+ 
+   <button class="export-btn" onclick="exportCSV()">📥 Export CSV</button>
+   <button class="reconnect-btn" onclick="reconnect()">🔄 Reconnect</button>
+   <button class="btn" onclick="exportCSV()">📥 Export CSV</button>
+   <button class="btn" onclick="reconnect()">🔄 Reconnect</button>
+ 
+   <script>
+     const FIREBASE_URL = "https://weather-station-1b75f-default-rtdb.firebaseio.com/sensor.json"; // 🔁 REPLACE THIS!
+ 
+     const maxPoints = 20;
+     const history = [];
+     const FIREBASE_URL = "https://weather-station-1b75f-default-rtdb.firebaseio.com/sensor.json";
+     const tempData = [], minTemps = [], maxTemps = [], labels = [];
+     let fetchInterval;
+     let lastTimestamp = null;
+     let countdownInterval;
+     let retryCountdown = 30;
+ 
+     const toast = (msg, type = "info") => {
+       Toastify({
+         text: msg,
+         duration: 3000,
+         gravity: "top",
+         position: "center",
+         backgroundColor: type === "error" ? "#ff4444" : "#2ecc71"
+       }).showToast();
+     };
+ 
+     const tempChart = new Chart(document.getElementById('tempChart'), {
+       type: 'line',
+       data: { labels: [], datasets: [{ label: 'Temperature (°C)', data: [], borderColor: 'orange', fill: true }] },
+       options: { animation: false, scales: { y: { beginAtZero: true } } }
+ 
+     const tempChart = new Chart(document.getElementById("temperatureChart"), {
+       type: "line",
+       data: {
+         labels,
+         datasets: [
+           { label: "Temperature", data: tempData, borderColor: "orange", fill: false },
+           { label: "Min Temp", data: minTemps, borderColor: "blue", borderDash: [5,5], fill: false },
+           { label: "Max Temp", data: maxTemps, borderColor: "red", borderDash: [5,5], fill: false },
+         ]
+       },
+       options: { scales: { y: { beginAtZero: true } } }
+     });
+ 
+     const humidityChart = new Chart(document.getElementById('humidityChart'), {
+       type: 'line',
+       data: { labels: [], datasets: [{ label: 'Humidity (%)', data: [], borderColor: 'cyan', fill: true }] },
+       options: { animation: false, scales: { y: { beginAtZero: true } } }
+     const humidityChart = new Chart(document.getElementById("humidityChart"), {
+       type: "line",
+       data: { labels, datasets: [{ label: "Humidity", data: [], borderColor: "cyan", fill: false }] },
+       options: { scales: { y: { beginAtZero: true } } }
+     });
+ 
+     const pressureChart = new Chart(document.getElementById('pressureChart'), {
+       type: 'line',
+       data: { labels: [], datasets: [{ label: 'Pressure (hPa)', data: [], borderColor: 'lime', fill: true }] },
+       options: { animation: false, scales: { y: { beginAtZero: true } } }
+     const pressureChart = new Chart(document.getElementById("pressureChart"), {
+       type: "line",
+       data: { labels, datasets: [{ label: "Pressure", data: [], borderColor: "lime", fill: false }] },
+       options: { scales: { y: { beginAtZero: true } } }
+     });
+ 
+     async function fetchData() {
+       try {
+         const res = await fetch(FIREBASE_URL);
+         if (!res.ok) throw new Error("Disconnected");
+ 
+         const data = await res.json();
+         const currentTimestamp = data.timestamp;
+         const now = new Date().toLocaleTimeString();
+ 
+         if (lastTimestamp && currentTimestamp === lastTimestamp) {
+           disconnect("⚠️ ESP32 Disconnected (No update)");
+           return;
+         updateText("temp", data.temperature_dht);
+         updateText("humidity", data.humidity);
+         updateText("pressure", data.pressure);
+         updateText("windSpeed", data.wind_speed);
+ 
+         updateNeedle(data.wind_direction);
+ 
+         // Calculate min/max for last 24 values (adjust as needed)
+         const recent = [...tempData.slice(-24), data.temperature_dht];
+         const min = Math.min(...recent);
+         const max = Math.max(...recent);
+         document.getElementById("minTemp").innerText = min.toFixed(1) + " °C";
+         document.getElementById("maxTemp").innerText = max.toFixed(1) + " °C";
+ 
+         labels.push(now);
+         tempData.push(data.temperature_dht);
+         minTemps.push(min);
+         maxTemps.push(max);
+         humidityChart.data.datasets[0].data.push(data.humidity);
+         pressureChart.data.datasets[0].data.push(data.pressure);
+ 
+         if (labels.length > 30) {
+           labels.shift(); tempData.shift(); minTemps.shift(); maxTemps.shift();
+           humidityChart.data.datasets[0].data.shift();
+           pressureChart.data.datasets[0].data.shift();
+         }
+ 
+         lastTimestamp = currentTimestamp;
+         document.getElementById("firebaseStatus").textContent = "Connected ✅";
+         document.getElementById("retryTimer").textContent = "";
+         tempChart.update();
+         humidityChart.update();
+         pressureChart.update();
+ 
+         const now = new Date().toLocaleTimeString();
+         updateReading("temp", data.temperature_dht, tempChart, now);
+         updateReading("humidity", data.humidity, humidityChart, now);
+         updateReading("pressure", data.pressure, pressureChart, now);
+         updateWind(data.wind_speed, data.wind_direction);
+ 
+         document.getElementById("sunrise").textContent = "Sunrise: 06:15 AM";
+         document.getElementById("uvIndex").textContent = "UV Index: 7 (High)";
+         document.getElementById("airQuality").textContent = "Air Quality: Moderate";
+ 
+         history.push({
+           timestamp: currentTimestamp,
+           temperature: data.temperature_dht,
+           humidity: data.humidity,
+           pressure: data.pressure,
+           wind_speed: data.wind_speed,
+           wind_direction: data.wind_direction
+         });
+ 
+         toast("✅ Sensor data updated");
+         document.getElementById("firebaseStatus").innerText = "Connected ✅";
+       } catch (err) {
+         disconnect("❌ Failed to fetch from Firebase");
+         document.getElementById("firebaseStatus").innerText = "❌ Disconnected";
+         console.error("Error fetching from Firebase", err);
+       }
+     }
+ 
+     function disconnect(msg) {
+       clearInterval(fetchInterval);
+       document.getElementById("firebaseStatus").textContent = msg;
+       toast(msg, "error");
+       startCountdown();
+     }
+ 
+     function startCountdown() {
+       retryCountdown = 30;
+       countdownInterval = setInterval(() => {
+         retryCountdown--;
+         document.getElementById("retryTimer").textContent = `Retrying in ${retryCountdown}s...`;
+         if (retryCountdown === 0) {
+           clearInterval(countdownInterval);
+           reconnect();
+         }
+       }, 1000);
+     }
+ 
+     function reconnect() {
+       toast("🔄 Reconnecting...");
+       document.getElementById("firebaseStatus").textContent = "Reconnecting...";
+       fetchData();
+       fetchInterval = setInterval(fetchData, 5000);
+     }
+ 
+     function updateReading(id, value, chart, label) {
+       document.getElementById(id).textContent = `${value}`;
+       chart.data.labels.push(label);
+       chart.data.datasets[0].data.push(value);
+       if (chart.data.labels.length > maxPoints) {
+         chart.data.labels.shift();
+         chart.data.datasets[0].data.shift();
+       }
+       chart.update();
+     function updateText(id, val) {
+       document.getElementById(id).innerText = val + (id === 'humidity' ? ' %' : id === 'pressure' ? ' hPa' : ' °C');
+     }
+ 
+     function updateWind(speed, direction) {
+       document.getElementById("windSpeed").textContent = `${speed} m/s`;
+       document.getElementById("needle").style.transform = `rotate(${direction}deg)`;
+     function updateNeedle(dir) {
+       document.getElementById("needle").style.transform = `rotate(${dir}deg)`;
+     }
+ 
+     function exportCSV() {
+       let csv = "Timestamp,Temperature,Humidity,Pressure,WindSpeed,WindDirection\n";
+       history.forEach(e => {
+         csv += `${e.timestamp},${e.temperature},${e.humidity},${e.pressure},${e.wind_speed},${e.wind_direction}\n`;
+       });
+       let csv = "Time,Temperature,Min Temp,Max Temp,Humidity,Pressure\n";
+       for (let i = 0; i < labels.length; i++) {
+         csv += `${labels[i]},${tempData[i]},${minTemps[i]},${maxTemps[i]},${humidityChart.data.datasets[0].data[i]},${pressureChart.data.datasets[0].data[i]}\n`;
+       }
+       const blob = new Blob([csv], { type: "text/csv" });
+       const url = URL.createObjectURL(blob);
+       const link = document.createElement("a");
+       link.href = url;
+       link.download = "weather_history.csv";
+       link.click();
+       const a = document.createElement("a");
+       a.href = url;
+       a.download = "crane_weather_data.csv";
+       a.click();
+     }
+ 
+     function reconnect() {
+       if (fetchInterval) clearInterval(fetchInterval);
+       fetchData();
+       fetchInterval = setInterval(fetchData, 5000);
+     }
+ 
+     reconnect(); // Start fetching on load
+     reconnect();
+   </script>
+ </body>
+ </html>
