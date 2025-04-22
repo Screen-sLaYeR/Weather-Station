@@ -1,11 +1,11 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>🌤️ Crane Weather Dashboard</title>
+  <meta charset="UTF-8" />
+  <title>Crane Weather Dashboard</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css" />
   <script src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css" />
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -30,22 +30,11 @@
       text-align: center;
       box-shadow: 0 0 10px rgba(0,0,0,0.3);
     }
-    .card p {
-      margin: 0.5rem 0;
-    }
     canvas {
-      max-width: 100%;
       background: #1e1e1e;
       padding: 1rem;
       border-radius: 10px;
-    }
-    .alert {
-      background-color: #ff5555;
-      padding: 10px;
-      border-radius: 8px;
-      text-align: center;
-      margin: 10px auto;
-      width: fit-content;
+      margin-top: 20px;
     }
     .status {
       text-align: center;
@@ -70,114 +59,100 @@
   <p class="status" id="firebaseStatus">Connecting to Firebase...</p>
 
   <div class="card-grid">
-    <div class="card">
-      <p>Pressure</p>
-      <h2 id="pressure">-- hPa</h2>
-    </div>
-    <div class="card">
-      <p>Rainfall</p>
-      <h2>0 mm</h2>
-    </div>
-    <div class="card">
-      <p>Temperature OUT</p>
-      <h2 id="temp">-- °C</h2>
-    </div>
-    <div class="card">
-      <p>Humidity OUT</p>
-      <h2 id="humidity">-- %</h2>
-    </div>
+    <div class="card"><p>Pressure</p><h2 id="pressure">-- hPa</h2></div>
+    <div class="card"><p>Rainfall</p><h2>0 mm</h2></div>
+    <div class="card"><p>Temperature OUT</p><h2 id="temp">-- °C</h2></div>
+    <div class="card"><p>Humidity OUT</p><h2 id="humidity">-- %</h2></div>
   </div>
 
   <button class="export-btn" onclick="exportCSV()">📥 Export CSV</button>
 
-  <div style="margin-top: 2rem;">
-    <h2>Temperature from DHT Sensor (°C)</h2>
-    <canvas id="tempChart"></canvas>
-  </div>
-
-  <div>
-    <h2>Humidity Level (%)</h2>
-    <canvas id="humidityChart"></canvas>
-  </div>
-
-  <div>
-    <h2>Barometric Pressure (hPa)</h2>
-    <canvas id="pressureChart"></canvas>
-  </div>
+  <h2>Temperature (°C)</h2>
+  <canvas id="tempChart"></canvas>
+  <h2>Humidity (%)</h2>
+  <canvas id="humidityChart"></canvas>
+  <h2>Pressure (hPa)</h2>
+  <canvas id="pressureChart"></canvas>
 
   <script>
+    let intervalId;
     const maxPoints = 20;
     const threshold = {
-      temperature_dht: 45,
+      temperature: 45,
       humidity: 80,
       pressure: 55
     };
-    const history = [];
-    const labels = [];
+    const labels = [], history = [];
 
-    const toast = (msg) => {
-      Toastify({ text: msg, duration: 3000, gravity: "top", position: "center", backgroundColor: "#ff5555" }).showToast();
-    };
+    const toast = (msg) => Toastify({
+      text: msg,
+      duration: 5000,
+      gravity: "top",
+      position: "center",
+      backgroundColor: "#ff4444"
+    }).showToast();
 
     const tempChart = new Chart(document.getElementById('tempChart'), {
       type: 'line',
       data: { labels, datasets: [{ label: 'Temperature (°C)', data: [], borderColor: 'orange', fill: true }] },
-      options: { scales: { y: { beginAtZero: true } }, animation: false }
+      options: { animation: false, scales: { y: { beginAtZero: true } } }
     });
 
     const humidityChart = new Chart(document.getElementById('humidityChart'), {
       type: 'line',
       data: { labels, datasets: [{ label: 'Humidity (%)', data: [], borderColor: 'cyan', fill: true }] },
-      options: { scales: { y: { beginAtZero: true } }, animation: false }
+      options: { animation: false, scales: { y: { beginAtZero: true } } }
     });
 
     const pressureChart = new Chart(document.getElementById('pressureChart'), {
       type: 'line',
       data: { labels, datasets: [{ label: 'Pressure (hPa)', data: [], borderColor: 'lime', fill: true }] },
-      options: { scales: { y: { beginAtZero: true } }, animation: false }
+      options: { animation: false, scales: { y: { beginAtZero: true } } }
     });
 
     async function fetchData() {
       try {
         const res = await fetch("https://weather-station-1b75f-default-rtdb.firebaseio.com/sensor.json");
-        if (!res.ok) throw new Error("Failed to fetch");
-        document.getElementById("firebaseStatus").textContent = "Connected ✅";
+        if (!res.ok) throw new Error("Disconnected");
 
         const data = await res.json();
         const time = new Date().toLocaleTimeString();
-        updateCharts(data, time);
 
-        const entry = {
+        document.getElementById("firebaseStatus").textContent = "Connected ✅";
+        updateUI(data, time);
+
+        // Save to Firebase history
+        const record = {
           timestamp: new Date().toISOString(),
           temperature: data.temperature_dht,
           humidity: data.humidity,
           pressure: data.pressure
         };
-        history.push(entry);
+        history.push(record);
         await fetch("https://weather-station-1b75f-default-rtdb.firebaseio.com/history.json", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(entry)
+          body: JSON.stringify(record)
         });
 
-      } catch (err) {
-        document.getElementById("firebaseStatus").textContent = "Disconnected ❌";
-        toast("Failed to fetch data from Firebase");
-        console.error(err);
+      } catch (error) {
+        document.getElementById("firebaseStatus").textContent = "Sensor Disconnected ❌";
+        toast("Sensor not connected. Stopping updates.");
+        clearInterval(intervalId);
       }
     }
 
-    function updateCharts(data, time) {
+    function updateUI(data, label) {
       document.getElementById("temp").textContent = `${data.temperature_dht} °C`;
       document.getElementById("humidity").textContent = `${data.humidity} %`;
       document.getElementById("pressure").textContent = `${data.pressure} hPa`;
 
-      pushData(tempChart, data.temperature_dht, time, threshold.temperature_dht, "Temperature");
-      pushData(humidityChart, data.humidity, time, threshold.humidity, "Humidity");
-      pushData(pressureChart, data.pressure, time, threshold.pressure, "Pressure");
+      updateChart(tempChart, data.temperature_dht, label, threshold.temperature, "Temperature");
+      updateChart(humidityChart, data.humidity, label, threshold.humidity, "Humidity");
+      updateChart(pressureChart, data.pressure, label, threshold.pressure, "Pressure");
     }
 
-    function pushData(chart, value, label, limit, labelText) {
+    function updateChart(chart, value, label, limit, name) {
       chart.data.labels.push(label);
       chart.data.datasets[0].data.push(value);
       if (chart.data.labels.length > maxPoints) {
@@ -185,16 +160,13 @@
         chart.data.datasets[0].data.shift();
       }
       chart.update();
-
-      if (value > limit) {
-        toast(`⚠️ ${labelText} Alert! ${value} > ${limit}`);
-      }
+      if (value > limit) toast(`⚠️ ${name} Alert: ${value} > ${limit}`);
     }
 
     function exportCSV() {
       let csv = "Timestamp,Temperature,Humidity,Pressure\n";
-      history.forEach(e => {
-        csv += `${e.timestamp},${e.temperature},${e.humidity},${e.pressure}\n`;
+      history.forEach(entry => {
+        csv += `${entry.timestamp},${entry.temperature},${entry.humidity},${entry.pressure}\n`;
       });
       const blob = new Blob([csv], { type: "text/csv" });
       const url = URL.createObjectURL(blob);
@@ -204,7 +176,7 @@
       link.click();
     }
 
-    setInterval(fetchData, 5000);
+    intervalId = setInterval(fetchData, 5000);
     fetchData();
   </script>
 </body>
