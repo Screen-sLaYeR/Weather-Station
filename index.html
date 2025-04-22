@@ -113,19 +113,20 @@
         updateChart(humidityChart, data.humidity, time, "humidityAlert", "Humidity", threshold.humidity);
         updateChart(pressureChart, data.pressure, time, "pressureAlert", "Pressure", threshold.pressure);
 
-        // Save to history
-        history.push({
+        const payload = {
           timestamp: new Date().toISOString(),
-          temperature: data.temperature_dht,
+          temperature_dht: data.temperature_dht,
           humidity: data.humidity,
           pressure: data.pressure
-        });
+        };
 
-        // Save to Firebase history
+        history.push(payload);
+
+        // Push to Firebase history
         await fetch("https://weather-station-1b75f-default-rtdb.firebaseio.com/history.json", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(history.at(-1))
+          body: JSON.stringify(payload)
         });
 
       } catch (err) {
@@ -154,7 +155,7 @@
     function exportCSV() {
       let csv = "Timestamp,Temperature,Humidity,Pressure\n";
       history.forEach(entry => {
-        csv += `${entry.timestamp},${entry.temperature},${entry.humidity},${entry.pressure}\n`;
+        csv += `${entry.timestamp},${entry.temperature_dht},${entry.humidity},${entry.pressure}\n`;
       });
       const blob = new Blob([csv], { type: "text/csv" });
       const url = URL.createObjectURL(blob);
@@ -165,7 +166,7 @@
     }
 
     setInterval(fetchData, 5000);
-    fetchData(); // initial call
+    fetchData(); // Initial load
   </script>
 </body>
 </html>
