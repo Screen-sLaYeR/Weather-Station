@@ -1,11 +1,11 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>Crane Weather Dashboard</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css" />
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -41,6 +41,7 @@
       text-align: center;
       color: lime;
       margin-bottom: 1rem;
+      font-weight: bold;
     }
     .export-btn {
       display: block;
@@ -101,9 +102,16 @@
     const maxPoints = 20;
     const history = [];
     let fetchInterval;
+    let lastTimestamp = null;
 
-    const toast = (msg) => {
-      Toastify({ text: msg, duration: 3000, gravity: "top", position: "center", backgroundColor: "#ff5555" }).showToast();
+    const toast = (msg, type = \"info\") => {
+      Toastify({
+        text: msg,
+        duration: 3000,
+        gravity: \"top\",
+        position: \"center\",
+        backgroundColor: type === \"error\" ? \"#ff4444\" : \"#2ecc71\"
+      }).showToast();
     };
 
     const tempChart = new Chart(document.getElementById('tempChart'), {
@@ -111,11 +119,13 @@
       data: { labels: [], datasets: [{ label: 'Temp (°C)', data: [], borderColor: 'orange', fill: true }] },
       options: { animation: false, scales: { y: { beginAtZero: true } } }
     });
+
     const humidityChart = new Chart(document.getElementById('humidityChart'), {
       type: 'line',
       data: { labels: [], datasets: [{ label: 'Humidity (%)', data: [], borderColor: 'cyan', fill: true }] },
       options: { animation: false, scales: { y: { beginAtZero: true } } }
     });
+
     const pressureChart = new Chart(document.getElementById('pressureChart'), {
       type: 'line',
       data: { labels: [], datasets: [{ label: 'Pressure (hPa)', data: [], borderColor: 'lime', fill: true }] },
@@ -128,6 +138,17 @@
         if (!res.ok) throw new Error("Disconnected");
 
         const data = await res.json();
+        const currentTimestamp = data.timestamp;
+
+        if (lastTimestamp && currentTimestamp === lastTimestamp) {
+          clearInterval(fetchInterval);
+          document.getElementById("firebaseStatus").textContent = "Sensor Offline ⚠️ (No new data)";
+          toast("⚠️ Sensor has stopped sending data", "error");
+          return;
+        }
+
+        lastTimestamp = currentTimestamp;
+
         const time = new Date().toLocaleTimeString();
         document.getElementById("firebaseStatus").textContent = "Connected ✅";
 
@@ -137,7 +158,7 @@
         updateWind(data.wind_speed, data.wind_direction);
 
         history.push({
-          timestamp: new Date().toISOString(),
+          timestamp: currentTimestamp,
           temperature: data.temperature_dht,
           humidity: data.humidity,
           pressure: data.pressure,
@@ -145,10 +166,12 @@
           wind_direction: data.wind_direction
         });
 
+        toast("✅ Sensor data updated");
+
       } catch (err) {
         clearInterval(fetchInterval);
         document.getElementById("firebaseStatus").textContent = "Disconnected ❌";
-        toast("Sensor disconnected. Updates stopped.");
+        toast("❌ Failed to fetch sensor data. Updates stopped.", "error");
       }
     }
 
@@ -166,7 +189,6 @@
     function updateWind(speed, direction) {
       document.getElementById("windSpeed").textContent = `${speed} m/s`;
       document.getElementById("needle").style.transform = `rotate(${direction}deg)`;
-      toast(`🌪️ Wind updated: ${speed} m/s from ${direction}°`);
     }
 
     function exportCSV() {
