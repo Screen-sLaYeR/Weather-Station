@@ -12,47 +12,27 @@
       background: linear-gradient(to bottom, #0f2027, #203a43, #2c5364);
       color: #eee;
       padding: 2rem;
-      margin: 0;
     }
-    h1, h2, p { text-align: center; }
-    .status { font-weight: bold; text-align: center; color: lime; margin-bottom: 1rem; }
+    h1, p { text-align: center; }
+    .status { text-align: center; font-weight: bold; color: lime; margin-top: 10px; }
     .grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
       gap: 1rem;
-      margin-top: 2rem;
+      margin: 2rem 0;
     }
     .card {
       background: rgba(255,255,255,0.05);
       padding: 1rem;
       border-radius: 12px;
-      box-shadow: 0 0 10px rgba(0,0,0,0.3);
       text-align: center;
+      box-shadow: 0 0 10px rgba(0,0,0,0.3);
     }
     canvas {
       background: #1e1e1e;
+      border-radius: 12px;
+      margin-top: 1.5rem;
       padding: 1rem;
-      border-radius: 10px;
-      margin-top: 2rem;
-      width: 100%;
-    }
-    .needle {
-      width: 2px;
-      height: 70px;
-      background: red;
-      position: absolute;
-      top: 5px;
-      left: 50%;
-      transform-origin: bottom center;
-    }
-    .compass {
-      width: 150px;
-      height: 150px;
-      border: 5px solid #eee;
-      border-radius: 50%;
-      margin: 1rem auto;
-      position: relative;
-      background: rgba(255,255,255,0.1);
     }
     .btn {
       display: inline-block;
@@ -63,6 +43,25 @@
       border: none;
       border-radius: 10px;
       cursor: pointer;
+      text-align: center;
+    }
+    .compass {
+      width: 100px;
+      height: 100px;
+      border: 3px solid #fff;
+      border-radius: 50%;
+      margin: 0 auto;
+      position: relative;
+      background: rgba(255,255,255,0.05);
+    }
+    .needle {
+      width: 2px;
+      height: 50px;
+      background: red;
+      position: absolute;
+      top: 10px;
+      left: 50%;
+      transform-origin: bottom center;
     }
   </style>
 </head>
@@ -72,32 +71,28 @@
 
   <div class="grid">
     <div class="card"><p>🌡️ Temperature</p><h2 id="temp">-- °C</h2></div>
-    <div class="card"><p>📉 Min Temperature</p><h2 id="minTemp">-- °C</h2></div>
-    <div class="card"><p>📈 Max Temperature</p><h2 id="maxTemp">-- °C</h2></div>
+    <div class="card"><p>📉 Min Temp</p><h2 id="minTemp">-- °C</h2></div>
+    <div class="card"><p>📈 Max Temp</p><h2 id="maxTemp">-- °C</h2></div>
     <div class="card"><p>💧 Humidity</p><h2 id="humidity">-- %</h2></div>
     <div class="card"><p>🌪️ Wind Speed</p><h2 id="windSpeed">-- m/s</h2></div>
     <div class="card"><p>🧭 Wind Direction</p><div class="compass"><div class="needle" id="needle"></div></div></div>
     <div class="card"><p>📈 Pressure</p><h2 id="pressure">-- hPa</h2></div>
-    <div class="card"><p>🌅 Sunrise</p><h2 id="sunriseCard">--:--</h2></div>
-    <div class="card"><p>☀️ UV Index</p><h2 id="uvCard">--</h2></div>
-    <div class="card"><p>🌫️ Air Quality</p><h2 id="aqiCard">--</h2></div>
   </div>
 
   <canvas id="temperatureChart"></canvas>
   <canvas id="humidityChart"></canvas>
   <canvas id="pressureChart"></canvas>
 
-  <button class="btn" onclick="exportCSV()">📥 Export CSV</button>
-  <button class="btn" onclick="reconnect()">🔄 Reconnect</button>
+  <div style="text-align: center;">
+    <button class="btn" onclick="exportCSV()">📥 Export CSV</button>
+    <button class="btn" onclick="reconnect()">🔄 Reconnect</button>
+  </div>
 
   <script>
     const FIREBASE_URL = "https://weather-station-1b75f-default-rtdb.firebaseio.com/sensor.json";
-    const API_KEY = 'YOUR_OPENWEATHERMAP_API_KEY';
-    const LAT = '19.0760';
-    const LON = '72.8777';
-    const tempData = [], minTemps = [], maxTemps = [], labels = [];
-    let fetchInterval;
-    let lastTimestamp = null;
+    const labels = [], tempData = [], minTemps = [], maxTemps = [], humidityData = [], pressureData = [];
+
+    let fetchInterval, lastTimestamp = null, lastUpdate = Date.now(), connected = false;
 
     const showToast = (msg, type = "info") => {
       Toastify({
@@ -109,124 +104,115 @@
       }).showToast();
     };
 
-    const tempChart = new Chart(document.getElementById("temperatureChart"), {
+    const temperatureChart = new Chart(document.getElementById("temperatureChart"), {
       type: "line",
       data: {
         labels,
         datasets: [
           { label: "Temperature", data: tempData, borderColor: "orange", fill: false },
-          { label: "Min Temp", data: minTemps, borderColor: "blue", borderDash: [5,5], fill: false },
-          { label: "Max Temp", data: maxTemps, borderColor: "red", borderDash: [5,5], fill: false },
+          { label: "Min Temp", data: minTemps, borderColor: "blue", borderDash: [5, 5], fill: false },
+          { label: "Max Temp", data: maxTemps, borderColor: "red", borderDash: [5, 5], fill: false }
         ]
       },
-      options: { scales: { y: { beginAtZero: true } } }
+      options: { scales: { y: { beginAtZero: false } } }
     });
 
     const humidityChart = new Chart(document.getElementById("humidityChart"), {
       type: "line",
-      data: { labels, datasets: [{ label: "Humidity", data: [], borderColor: "cyan", fill: false }] },
+      data: { labels, datasets: [{ label: "Humidity (%)", data: humidityData, borderColor: "cyan", fill: false }] },
       options: { scales: { y: { beginAtZero: true } } }
     });
 
     const pressureChart = new Chart(document.getElementById("pressureChart"), {
       type: "line",
-      data: { labels, datasets: [{ label: "Pressure", data: [], borderColor: "lime", fill: false }] },
+      data: { labels, datasets: [{ label: "Pressure (hPa)", data: pressureData, borderColor: "lime", fill: false }] },
       options: { scales: { y: { beginAtZero: true } } }
     });
+
+    const updateText = (id, val, unit) => {
+      document.getElementById(id).innerText = `${val} ${unit}`;
+    };
 
     async function fetchData() {
       try {
         const res = await fetch(FIREBASE_URL);
         const data = await res.json();
 
-        if (!data || data.timestamp === lastTimestamp) {
-          document.getElementById("firebaseStatus").innerText = "❌ ESP32 Disconnected";
-          showToast("⚠️ ESP32 stopped sending data.", "error");
-          clearInterval(fetchInterval);
-          return;
+        if (!data || data.timestamp === lastTimestamp) return;
+        lastTimestamp = data.timestamp;
+        lastUpdate = Date.now();
+
+        if (!connected) {
+          connected = true;
+          document.getElementById("firebaseStatus").innerText = "✅ Connected to ESP32";
+          showToast("ESP32 Connected");
         }
 
-        lastTimestamp = data.timestamp;
         const now = new Date().toLocaleTimeString();
-        updateText("temp", data.temperature_dht);
-        updateText("humidity", data.humidity);
-        updateText("pressure", data.pressure);
-        updateText("windSpeed", data.wind_speed);
-        updateNeedle(data.wind_direction);
+        updateText("temp", data.temperature_dht, "°C");
+        updateText("humidity", data.humidity, "%");
+        updateText("pressure", data.pressure, "hPa");
+        updateText("windSpeed", data.wind_speed, "m/s");
+        document.getElementById("needle").style.transform = `rotate(${data.wind_direction}deg)`;
 
-        const recent = [...tempData.slice(-24), data.temperature_dht];
-        const min = Math.min(...recent);
-        const max = Math.max(...recent);
-        document.getElementById("minTemp").innerText = min.toFixed(1) + " °C";
-        document.getElementById("maxTemp").innerText = max.toFixed(1) + " °C";
+        const recentTemps = [...tempData.slice(-24), data.temperature_dht];
+        const min = Math.min(...recentTemps);
+        const max = Math.max(...recentTemps);
+
+        updateText("minTemp", min.toFixed(1), "°C");
+        updateText("maxTemp", max.toFixed(1), "°C");
 
         labels.push(now);
         tempData.push(data.temperature_dht);
         minTemps.push(min);
         maxTemps.push(max);
-        humidityChart.data.datasets[0].data.push(data.humidity);
-        pressureChart.data.datasets[0].data.push(data.pressure);
+        humidityData.push(data.humidity);
+        pressureData.push(data.pressure);
 
         if (labels.length > 30) {
           labels.shift(); tempData.shift(); minTemps.shift(); maxTemps.shift();
-          humidityChart.data.datasets[0].data.shift();
-          pressureChart.data.datasets[0].data.shift();
+          humidityData.shift(); pressureData.shift();
         }
 
-        tempChart.update();
+        temperatureChart.update();
         humidityChart.update();
         pressureChart.update();
 
-        document.getElementById("firebaseStatus").innerText = "Connected ✅";
-
-        const weatherRes = await fetch(`https://api.openweathermap.org/data/2.5/onecall?lat=${LAT}&lon=${LON}&exclude=minutely,hourly,daily,alerts&appid=${API_KEY}&units=metric`);
-        const weatherData = await weatherRes.json();
-
-        const sunrise = new Date(weatherData.current.sunrise * 1000).toLocaleTimeString();
-        const uv = weatherData.current.uvi;
-
-        const aqiRes = await fetch(`https://api.openweathermap.org/data/2.5/air_pollution?lat=${LAT}&lon=${LON}&appid=${API_KEY}`);
-        const aqiData = await aqiRes.json();
-        const aqi = aqiData.list[0].main.aqi;
-        const aqiText = ["Good", "Fair", "Moderate", "Poor", "Very Poor"];
-
-        document.getElementById("sunriseCard").innerText = `Sunrise: ${sunrise}`;
-        document.getElementById("uvCard").innerText = `UV Index: ${uv}`;
-        document.getElementById("aqiCard").innerText = aqiText[aqi - 1];
-
       } catch (err) {
-        document.getElementById("firebaseStatus").innerText = "❌ Disconnected";
-        showToast("❌ Failed to fetch data.", "error");
-        clearInterval(fetchInterval);
-        console.error("Error fetching data", err);
+        console.error("Fetch error:", err);
+        document.getElementById("firebaseStatus").innerText = "❌ Disconnected from Firebase";
+        showToast("Firebase connection failed", "error");
       }
     }
 
-    function updateText(id, val) {
-      document.getElementById(id).innerText = val + (id === 'humidity' ? ' %' : id === 'pressure' ? ' hPa' : ' °C');
-    }
+    const checkESPStatus = () => {
+      const now = Date.now();
+      if (now - lastUpdate > 7000 && connected) {
+        connected = false;
+        document.getElementById("firebaseStatus").innerText = "❌ ESP32 Disconnected";
+        showToast("ESP32 is not sending data", "error");
+      }
+    };
 
-    function updateNeedle(dir) {
-      document.getElementById("needle").style.transform = `rotate(${dir}deg)`;
+    function reconnect() {
+      if (fetchInterval) clearInterval(fetchInterval);
+      fetchData();
+      fetchInterval = setInterval(() => {
+        fetchData();
+        checkESPStatus();
+      }, 5000);
     }
 
     function exportCSV() {
       let csv = "Time,Temperature,Min Temp,Max Temp,Humidity,Pressure\n";
       for (let i = 0; i < labels.length; i++) {
-        csv += `${labels[i]},${tempData[i]},${minTemps[i]},${maxTemps[i]},${humidityChart.data.datasets[0].data[i]},${pressureChart.data.datasets[0].data[i]}\n`;
+        csv += `${labels[i]},${tempData[i]},${minTemps[i]},${maxTemps[i]},${humidityData[i]},${pressureData[i]}\n`;
       }
       const blob = new Blob([csv], { type: "text/csv" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "crane_weather_data.csv";
-      a.click();
-    }
-
-    function reconnect() {
-      if (fetchInterval) clearInterval(fetchInterval);
-      fetchData();
-      fetchInterval = setInterval(fetchData, 5000);
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = "crane_weather_data.csv";
+      link.click();
     }
 
     reconnect();
