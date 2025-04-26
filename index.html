@@ -1,359 +1,772 @@
 <!DOCTYPE html>
- <html lang="en">
- <head>
-   <meta charset="UTF-8" />
-   <title>Crane Weather Dashboard</title>
-   <meta charset="UTF-8">
-   <title>Industrial Crane Weather Dashboard</title>
-   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-   <script src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
-   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css" />
-   <style>
-     body {
-       font-family: Arial, sans-serif;
-       font-family: 'Segoe UI', sans-serif;
-       background: linear-gradient(to bottom, #0f2027, #203a43, #2c5364);
-       color: #eee;
-       padding: 2rem;
-       margin: 0;
-     }
-     h1, h2, p { text-align: center; }
-     .status { font-weight: bold; text-align: center; color: lime; margin-bottom: 1rem; }
-     .card-grid {
-     h1, h2, p {
-       text-align: center;
-     }
-     .status {
-       font-weight: bold;
-       text-align: center;
-       color: lime;
-       margin-bottom: 1rem;
-     }
-     .grid {
-       display: grid;
-       grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-       grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-       gap: 1rem;
-       margin-top: 2rem;
-     }
-     .card {
-       background: rgba(255,255,255,0.05);
-       padding: 1rem;
-       border-radius: 12px;
-       text-align: center;
-       box-shadow: 0 0 10px rgba(0,0,0,0.3);
-       text-align: center;
-     }
-     .icon-card { display: flex; align-items: center; justify-content: center; gap: 10px; }
-     .icon-card img { width: 24px; height: 24px; }
-     canvas {
-       background: #1e1e1e; padding: 1rem;
-       border-radius: 10px; margin-top: 2rem; width: 100%;
-       background: #1e1e1e;
-       padding: 1rem;
-       border-radius: 10px;
-       margin-top: 2rem;
-       width: 100%;
-     }
-     .export-btn, .reconnect-btn {
-       display: block; margin: 20px auto;
-       padding: 10px 20px; color: white;
-       border: none; border-radius: 10px; cursor: pointer;
-     .needle {
-       width: 2px;
-       height: 70px;
-       background: red;
-       position: absolute;
-       top: 5px;
-       left: 50%;
-       transform-origin: bottom center;
-     }
-     .export-btn { background: #2d88ff; }
-     .reconnect-btn { background: #e67e22; }
-     .countdown { text-align: center; font-size: 0.9em; color: #ffd700; margin-top: -10px; }
-     .compass {
-       width: 150px; height: 150px;
-       border: 5px solid #eee; border-radius: 50%;
-       position: relative; margin: 2rem auto;
-       background: rgba(255,255,255,0.05);
-       width: 150px;
-       height: 150px;
-       border: 5px solid #eee;
-       border-radius: 50%;
-       margin: 1rem auto;
-       position: relative;
-       background: rgba(255,255,255,0.1);
-     }
-     .needle {
-       width: 2px; height: 70px; background: red;
-       position: absolute; top: 5px; left: 50%;
-       transform-origin: bottom center;
-     .btn {
-       display: inline-block;
-       margin: 1rem auto;
-       padding: 10px 20px;
-       background: #2d88ff;
-       color: white;
-       border: none;
-       border-radius: 10px;
-       cursor: pointer;
-     }
-   </style>
- </head>
- <body>
-   <h1>🌤️ Crane Weather Station</h1>
-   <p class="status" id="firebaseStatus">Connecting to Firebase...</p>
-   <p class="countdown" id="retryTimer"></p>
-   <h1>🏗️ Crane Weather Monitoring Dashboard</h1>
-   <p class="status" id="firebaseStatus">Connecting...</p>
- 
-   <div class="card-grid">
-   <div class="grid">
-     <div class="card"><p>🌡️ Temperature</p><h2 id="temp">-- °C</h2></div>
-     <div class="card"><p>📉 Min Temperature</p><h2 id="minTemp">-- °C</h2></div>
-     <div class="card"><p>📈 Max Temperature</p><h2 id="maxTemp">-- °C</h2></div>
-     <div class="card"><p>💧 Humidity</p><h2 id="humidity">-- %</h2></div>
-     <div class="card"><p>📈 Pressure</p><h2 id="pressure">-- hPa</h2></div>
-     <div class="card"><p>🌪️ Wind Speed</p><h2 id="windSpeed">-- m/s</h2></div>
-     <div class="card"><p>🧭 Wind Direction</p>
-       <div class="compass"><div class="needle" id="needle"></div></div>
-     </div>
-     <div class="card"><p>📈 Pressure</p><h2 id="pressure">-- hPa</h2></div>
-     <div class="card"><p>🌅 Sunrise</p><h2>06:15 AM</h2></div>
-     <div class="card"><p>☀️ UV Index</p><h2>7 (High)</h2></div>
-     <div class="card"><p>🌫️ Air Quality</p><h2>Moderate</h2></div>
-   </div>
- 
-   <div class="card-grid">
-     <div class="card icon-card"><img src="https://img.icons8.com/color/48/sunrise.png"/><p id="sunrise">Sunrise: --:--</p></div>
-     <div class="card icon-card"><img src="https://img.icons8.com/color/48/sun--v1.png"/><p id="uvIndex">UV Index: --</p></div>
-     <div class="card icon-card"><img src="https://img.icons8.com/color/48/fog-day.png"/><p id="airQuality">Air Quality: --</p></div>
-   </div>
- 
-   <div class="card" style="max-width: 300px; margin: 2rem auto;">
-     <p>🧭 Wind Direction</p>
-     <div class="compass"><div class="needle" id="needle"></div></div>
-   </div>
- 
-   <canvas id="tempChart"></canvas>
-   <canvas id="temperatureChart"></canvas>
-   <canvas id="humidityChart"></canvas>
-   <canvas id="pressureChart"></canvas>
- 
-   <button class="export-btn" onclick="exportCSV()">📥 Export CSV</button>
-   <button class="reconnect-btn" onclick="reconnect()">🔄 Reconnect</button>
-   <button class="btn" onclick="exportCSV()">📥 Export CSV</button>
-   <button class="btn" onclick="reconnect()">🔄 Reconnect</button>
- 
-   <script>
-     const FIREBASE_URL = "https://weather-station-1b75f-default-rtdb.firebaseio.com/sensor.json"; // 🔁 REPLACE THIS!
- 
-     const maxPoints = 20;
-     const history = [];
-     const FIREBASE_URL = "https://weather-station-1b75f-default-rtdb.firebaseio.com/sensor.json";
-     const tempData = [], minTemps = [], maxTemps = [], labels = [];
-     let fetchInterval;
-     let lastTimestamp = null;
-     let countdownInterval;
-     let retryCountdown = 30;
- 
-     const toast = (msg, type = "info") => {
-       Toastify({
-         text: msg,
-         duration: 3000,
-         gravity: "top",
-         position: "center",
-         backgroundColor: type === "error" ? "#ff4444" : "#2ecc71"
-       }).showToast();
-     };
- 
-     const tempChart = new Chart(document.getElementById('tempChart'), {
-       type: 'line',
-       data: { labels: [], datasets: [{ label: 'Temperature (°C)', data: [], borderColor: 'orange', fill: true }] },
-       options: { animation: false, scales: { y: { beginAtZero: true } } }
- 
-     const tempChart = new Chart(document.getElementById("temperatureChart"), {
-       type: "line",
-       data: {
-         labels,
-         datasets: [
-           { label: "Temperature", data: tempData, borderColor: "orange", fill: false },
-           { label: "Min Temp", data: minTemps, borderColor: "blue", borderDash: [5,5], fill: false },
-           { label: "Max Temp", data: maxTemps, borderColor: "red", borderDash: [5,5], fill: false },
-         ]
-       },
-       options: { scales: { y: { beginAtZero: true } } }
-     });
- 
-     const humidityChart = new Chart(document.getElementById('humidityChart'), {
-       type: 'line',
-       data: { labels: [], datasets: [{ label: 'Humidity (%)', data: [], borderColor: 'cyan', fill: true }] },
-       options: { animation: false, scales: { y: { beginAtZero: true } } }
-     const humidityChart = new Chart(document.getElementById("humidityChart"), {
-       type: "line",
-       data: { labels, datasets: [{ label: "Humidity", data: [], borderColor: "cyan", fill: false }] },
-       options: { scales: { y: { beginAtZero: true } } }
-     });
- 
-     const pressureChart = new Chart(document.getElementById('pressureChart'), {
-       type: 'line',
-       data: { labels: [], datasets: [{ label: 'Pressure (hPa)', data: [], borderColor: 'lime', fill: true }] },
-       options: { animation: false, scales: { y: { beginAtZero: true } } }
-     const pressureChart = new Chart(document.getElementById("pressureChart"), {
-       type: "line",
-       data: { labels, datasets: [{ label: "Pressure", data: [], borderColor: "lime", fill: false }] },
-       options: { scales: { y: { beginAtZero: true } } }
-     });
- 
-     async function fetchData() {
-       try {
-         const res = await fetch(FIREBASE_URL);
-         if (!res.ok) throw new Error("Disconnected");
- 
-         const data = await res.json();
-         const currentTimestamp = data.timestamp;
-         const now = new Date().toLocaleTimeString();
- 
-         if (lastTimestamp && currentTimestamp === lastTimestamp) {
-           disconnect("⚠️ ESP32 Disconnected (No update)");
-           return;
-         updateText("temp", data.temperature_dht);
-         updateText("humidity", data.humidity);
-         updateText("pressure", data.pressure);
-         updateText("windSpeed", data.wind_speed);
- 
-         updateNeedle(data.wind_direction);
- 
-         // Calculate min/max for last 24 values (adjust as needed)
-         const recent = [...tempData.slice(-24), data.temperature_dht];
-         const min = Math.min(...recent);
-         const max = Math.max(...recent);
-         document.getElementById("minTemp").innerText = min.toFixed(1) + " °C";
-         document.getElementById("maxTemp").innerText = max.toFixed(1) + " °C";
- 
-         labels.push(now);
-         tempData.push(data.temperature_dht);
-         minTemps.push(min);
-         maxTemps.push(max);
-         humidityChart.data.datasets[0].data.push(data.humidity);
-         pressureChart.data.datasets[0].data.push(data.pressure);
- 
-         if (labels.length > 30) {
-           labels.shift(); tempData.shift(); minTemps.shift(); maxTemps.shift();
-           humidityChart.data.datasets[0].data.shift();
-           pressureChart.data.datasets[0].data.shift();
-         }
- 
-         lastTimestamp = currentTimestamp;
-         document.getElementById("firebaseStatus").textContent = "Connected ✅";
-         document.getElementById("retryTimer").textContent = "";
-         tempChart.update();
-         humidityChart.update();
-         pressureChart.update();
- 
-         const now = new Date().toLocaleTimeString();
-         updateReading("temp", data.temperature_dht, tempChart, now);
-         updateReading("humidity", data.humidity, humidityChart, now);
-         updateReading("pressure", data.pressure, pressureChart, now);
-         updateWind(data.wind_speed, data.wind_direction);
- 
-         document.getElementById("sunrise").textContent = "Sunrise: 06:15 AM";
-         document.getElementById("uvIndex").textContent = "UV Index: 7 (High)";
-         document.getElementById("airQuality").textContent = "Air Quality: Moderate";
- 
-         history.push({
-           timestamp: currentTimestamp,
-           temperature: data.temperature_dht,
-           humidity: data.humidity,
-           pressure: data.pressure,
-           wind_speed: data.wind_speed,
-           wind_direction: data.wind_direction
-         });
- 
-         toast("✅ Sensor data updated");
-         document.getElementById("firebaseStatus").innerText = "Connected ✅";
-       } catch (err) {
-         disconnect("❌ Failed to fetch from Firebase");
-         document.getElementById("firebaseStatus").innerText = "❌ Disconnected";
-         console.error("Error fetching from Firebase", err);
-       }
-     }
- 
-     function disconnect(msg) {
-       clearInterval(fetchInterval);
-       document.getElementById("firebaseStatus").textContent = msg;
-       toast(msg, "error");
-       startCountdown();
-     }
- 
-     function startCountdown() {
-       retryCountdown = 30;
-       countdownInterval = setInterval(() => {
-         retryCountdown--;
-         document.getElementById("retryTimer").textContent = `Retrying in ${retryCountdown}s...`;
-         if (retryCountdown === 0) {
-           clearInterval(countdownInterval);
-           reconnect();
-         }
-       }, 1000);
-     }
- 
-     function reconnect() {
-       toast("🔄 Reconnecting...");
-       document.getElementById("firebaseStatus").textContent = "Reconnecting...";
-       fetchData();
-       fetchInterval = setInterval(fetchData, 5000);
-     }
- 
-     function updateReading(id, value, chart, label) {
-       document.getElementById(id).textContent = `${value}`;
-       chart.data.labels.push(label);
-       chart.data.datasets[0].data.push(value);
-       if (chart.data.labels.length > maxPoints) {
-         chart.data.labels.shift();
-         chart.data.datasets[0].data.shift();
-       }
-       chart.update();
-     function updateText(id, val) {
-       document.getElementById(id).innerText = val + (id === 'humidity' ? ' %' : id === 'pressure' ? ' hPa' : ' °C');
-     }
- 
-     function updateWind(speed, direction) {
-       document.getElementById("windSpeed").textContent = `${speed} m/s`;
-       document.getElementById("needle").style.transform = `rotate(${direction}deg)`;
-     function updateNeedle(dir) {
-       document.getElementById("needle").style.transform = `rotate(${dir}deg)`;
-     }
- 
-     function exportCSV() {
-       let csv = "Timestamp,Temperature,Humidity,Pressure,WindSpeed,WindDirection\n";
-       history.forEach(e => {
-         csv += `${e.timestamp},${e.temperature},${e.humidity},${e.pressure},${e.wind_speed},${e.wind_direction}\n`;
-       });
-       let csv = "Time,Temperature,Min Temp,Max Temp,Humidity,Pressure\n";
-       for (let i = 0; i < labels.length; i++) {
-         csv += `${labels[i]},${tempData[i]},${minTemps[i]},${maxTemps[i]},${humidityChart.data.datasets[0].data[i]},${pressureChart.data.datasets[0].data[i]}\n`;
-       }
-       const blob = new Blob([csv], { type: "text/csv" });
-       const url = URL.createObjectURL(blob);
-       const link = document.createElement("a");
-       link.href = url;
-       link.download = "weather_history.csv";
-       link.click();
-       const a = document.createElement("a");
-       a.href = url;
-       a.download = "crane_weather_data.csv";
-       a.click();
-     }
- 
-     function reconnect() {
-       if (fetchInterval) clearInterval(fetchInterval);
-       fetchData();
-       fetchInterval = setInterval(fetchData, 5000);
-     }
- 
-     reconnect(); // Start fetching on load
-     reconnect();
-   </script>
- </body>
- </html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Crane Weather Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css" />
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(to bottom, #0f2027, #203a43, #2c5364);
+      color: #eee;
+      padding: 2rem;
+      margin: 0;
+    }
+    h1, h2, p {
+      text-align: center;
+    }
+    .status {
+      font-weight: bold;
+      text-align: center;
+      color: lime;
+      margin-bottom: 1rem;
+    }
+    .countdown {
+      text-align: center;
+      font-size: 0.9em;
+      color: #ffd700;
+      margin-top: -10px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 1rem;
+      margin-top: 2rem;
+    }
+    .card {
+      background: rgba(255,255,255,0.05);
+      padding: 1rem;
+      border-radius: 12px;
+      text-align: center;
+      box-shadow: 0 0 10px rgba(0,0,0,0.3);
+    }
+    .compass {
+      width: 150px;
+      height: 150px;
+      border: 5px solid #eee;
+      border-radius: 50%;
+      margin: 1rem auto;
+      position: relative;
+      background: rgba(255,255,255,0.1);
+    }
+    .compass::before {
+      content: "N";
+      position: absolute;
+      top: 5px;
+      left: 50%;
+      transform: translateX(-50%);
+      color: white;
+      font-weight: bold;
+    }
+    .compass::after {
+      content: "S";
+      position: absolute;
+      bottom: 5px;
+      left: 50%;
+      transform: translateX(-50%);
+      color: white;
+      font-weight: bold;
+    }
+    .compass-east {
+      position: absolute;
+      right: 5px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: white;
+      font-weight: bold;
+    }
+    .compass-west {
+      position: absolute;
+      left: 5px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: white;
+      font-weight: bold;
+    }
+    .needle {
+      width: 2px;
+      height: 70px;
+      background: red;
+      position: absolute;
+      top: 5px;
+      left: 50%;
+      transform-origin: bottom center;
+    }
+    .direction-text {
+      margin-top: 10px;
+      font-size: 1.2em;
+      font-weight: bold;
+      color: #ffd700;
+    }
+    canvas {
+      background: #1e1e1e;
+      padding: 1rem;
+      border-radius: 10px;
+      margin-top: 2rem;
+      width: 100%;
+    }
+    .btn {
+      display: inline-block;
+      margin: 10px auto;
+      padding: 10px 20px;
+      background: #2d88ff;
+      color: white;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+    }
+    .btn.export { background: #2d88ff; }
+    .btn.reconnect { background: #e67e22; }
+    .buttons {
+      text-align: center;
+      margin-top: 1rem;
+    }
+    .threshold-container {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 10px;
+      align-items: center;
+    }
+    .threshold-input {
+      width: 70px;
+      padding: 5px;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+      background: rgba(255,255,255,0.1);
+      color: white;
+      text-align: center;
+    }
+    label {
+      font-size: 0.8em;
+      color: #ddd;
+    }
+    .threshold-label {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+    }
+    .out-of-range {
+      background: rgba(255,0,0,0.3);
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(255,0,0,0.7); }
+      70% { box-shadow: 0 0 0 10px rgba(255,0,0,0); }
+      100% { box-shadow: 0 0 0 0 rgba(255,0,0,0); }
+    }
+    .threshold-settings {
+      background: rgba(0,0,0,0.2);
+      padding: 20px;
+      border-radius: 10px;
+      margin: 20px 0;
+    }
+    h3 {
+      margin-top: 0;
+      text-align: center;
+      color: #ffd700;
+    }
+    .wind-direction-history {
+      width: 100%;
+      height: 100px;
+      background: rgba(0,0,0,0.3);
+      border-radius: 10px;
+      margin-top: 1rem;
+      position: relative;
+      overflow: hidden;
+    }
+    .direction-marker {
+      position: absolute;
+      bottom: 0;
+      width: 2px;
+      background: rgba(255,255,255,0.7);
+      transform-origin: bottom center;
+    }
+    .wind-details {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .wind-info {
+      display: flex;
+      justify-content: space-between;
+      width: 100%;
+      margin-top: 10px;
+    }
+    .wind-speed-value, .wind-direction-value {
+      font-size: 1.2em;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <h1>🏗 Crane Weather Monitoring Dashboard</h1>
+  <p class="status" id="firebaseStatus">Connecting...</p>
+  <p class="countdown" id="retryTimer"></p>
+
+  <div class="threshold-settings">
+    <h3>⚙ Threshold Settings</h3>
+    <div class="grid">
+      <div class="card">
+        <p>🌡 Temperature</p>
+        <div class="threshold-container">
+          <div class="threshold-label">
+            <label>Min:</label>
+            <input type="number" id="temp-min" class="threshold-input" value="15" step="0.5">
+          </div>
+          <div class="threshold-label">
+            <label>Max:</label>
+            <input type="number" id="temp-max" class="threshold-input" value="35" step="0.5">
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <p>💧 Humidity</p>
+        <div class="threshold-container">
+          <div class="threshold-label">
+            <label>Min:</label>
+            <input type="number" id="humidity-min" class="threshold-input" value="30" step="1">
+          </div>
+          <div class="threshold-label">
+            <label>Max:</label>
+            <input type="number" id="humidity-max" class="threshold-input" value="80" step="1">
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <p>📈 Pressure</p>
+        <div class="threshold-container">
+          <div class="threshold-label">
+            <label>Min:</label>
+            <input type="number" id="pressure-min" class="threshold-input" value="980" step="1">
+          </div>
+          <div class="threshold-label">
+            <label>Max:</label>
+            <input type="number" id="pressure-max" class="threshold-input" value="1030" step="1">
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <p>🌪 Wind Speed</p>
+        <div class="threshold-container">
+          <div class="threshold-label">
+            <label>Min:</label>
+            <input type="number" id="wind-min" class="threshold-input" value="0" step="0.5">
+          </div>
+          <div class="threshold-label">
+            <label>Max:</label>
+            <input type="number" id="wind-max" class="threshold-input" value="15" step="0.5">
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="card" id="temp-card"><p>🌡 Temperature</p><h2 id="temp">-- °C</h2></div>
+    <div class="card"><p>📉 Min Temperature</p><h2 id="minTemp">-- °C</h2></div>
+    <div class="card"><p>📈 Max Temperature</p><h2 id="maxTemp">-- °C</h2></div>
+    <div class="card" id="humidity-card"><p>💧 Humidity</p><h2 id="humidity">-- %</h2></div>
+    <div class="card" id="wind-card"><p>🌪 Wind Speed</p><h2 id="windSpeed">-- m/s</h2></div>
+    <div class="card" id="pressure-card"><p>📈 Pressure</p><h2 id="pressure">-- hPa</h2></div>
+    <div class="card">
+      <p>🧭 Wind Direction</p>
+      <div class="compass">
+        <div class="needle" id="needle"></div>
+        <div class="compass-east">E</div>
+        <div class="compass-west">W</div>
+      </div>
+      <div class="direction-text" id="direction-text">--</div>
+      <div class="wind-direction-history" id="direction-history"></div>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <h3>🌪 Wind Information</h3>
+      <div class="wind-details">
+        <div class="wind-info">
+          <span>Speed:</span>
+          <span class="wind-speed-value" id="wind-speed-value">-- m/s</span>
+        </div>
+        <div class="wind-info">
+          <span>Direction:</span>
+          <span class="wind-direction-value" id="wind-direction-value">--</span>
+        </div>
+        <div class="wind-info">
+          <span>Status:</span>
+          <span class="wind-status" id="wind-status">--</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <canvas id="temperatureChart"></canvas>
+  <canvas id="humidityChart"></canvas>
+  <canvas id="pressureChart"></canvas>
+  <canvas id="windSpeedChart"></canvas>
+
+  <div class="buttons">
+    <button class="btn export" onclick="exportCSV()">📥 Export CSV</button>
+    <button class="btn reconnect" onclick="reconnect()">🔄 Reconnect</button>
+  </div>
+
+  <script>
+    // Firebase configuration
+    const firebaseConfig = {
+      apiKey: "AIzaSyCWx7Pdm0rLMLF3xhurj5sxE16Q60l5Oiw",
+      authDomain: "weather-station-712eb.firebaseapp.com",
+      databaseURL: "https://weather-station-712eb-default-rtdb.firebaseio.com",
+      projectId: "weather-station-712eb",
+      storageBucket: "weather-station-712eb.firebasestorage.app",
+      messagingSenderId: "567542912124",
+      appId: "1:567542912124:web:b60f89f552f7713b4ae5f9",
+      measurementId: "G-WDCCYKRSWW"
+    };
+    
+    // Initialize Firebase
+    firebase.initializeApp(firebaseConfig);
+    const database = firebase.database();
+    const sensorRef = database.ref('sensor/current');
+
+    const maxPoints = 20;
+    const history = [];
+    const directionHistory = [];
+    let fetchInterval;
+    let lastUpdateTime = null;
+    let countdownInterval;
+    let retryCountdown = 30;
+    let isConnected = false;
+    
+    const labels = [];
+    const tempData = [];
+    const minTemps = [];
+    const maxTemps = [];
+    const windData = [];
+    const windDirectionData = [];
+
+    // Wind status descriptions
+    const windDescriptions = [
+      { max: 0.5, desc: "Calm", color: "#00ff00" },
+      { max: 1.5, desc: "Light Air", color: "#90ee90" },
+      { max: 3.3, desc: "Light Breeze", color: "#90ee90" },
+      { max: 5.5, desc: "Gentle Breeze", color: "#ffff00" },
+      { max: 7.9, desc: "Moderate Breeze", color: "#ffa500" },
+      { max: 10.7, desc: "Fresh Breeze", color: "#ff8c00" },
+      { max: 13.8, desc: "Strong Breeze", color: "#ff4500" },
+      { max: 17.1, desc: "Near Gale", color: "#ff0000" },
+      { max: 20.7, desc: "Gale", color: "#ff0000" },
+      { max: 24.4, desc: "Strong Gale", color: "#8b0000" },
+      { max: 28.4, desc: "Storm", color: "#8b0000" },
+      { max: 32.6, desc: "Violent Storm", color: "#8b0000" },
+      { max: Infinity, desc: "Hurricane", color: "#800080" }
+    ];
+
+    // Convert cardinal/intercardinal direction to degrees
+    function directionToDegrees(dir) {
+      const directions = {
+        "N": 0, "NNE": 22.5, "NE": 45, "ENE": 67.5,
+        "E": 90, "ESE": 112.5, "SE": 135, "SSE": 157.5,
+        "S": 180, "SSW": 202.5, "SW": 225, "WSW": 247.5,
+        "W": 270, "WNW": 292.5, "NW": 315, "NNW": 337.5
+      };
+      
+      if (directions.hasOwnProperty(dir)) {
+        return directions[dir];
+      } else if (!isNaN(dir)) {
+        return Number(dir);
+      }
+      return 0;
+    }
+
+    // Convert degrees to cardinal/intercardinal direction
+    function degreesToDirection(degrees) {
+      // Normalize degrees to 0-360
+      degrees = (degrees % 360 + 360) % 360;
+      
+      if (degrees >= 348.75 || degrees < 11.25) return "N";
+      if (degrees >= 11.25 && degrees < 33.75) return "NNE";
+      if (degrees >= 33.75 && degrees < 56.25) return "NE";
+      if (degrees >= 56.25 && degrees < 78.75) return "ENE";
+      if (degrees >= 78.75 && degrees < 101.25) return "E";
+      if (degrees >= 101.25 && degrees < 123.75) return "ESE";
+      if (degrees >= 123.75 && degrees < 146.25) return "SE";
+      if (degrees >= 146.25 && degrees < 168.75) return "SSE";
+      if (degrees >= 168.75 && degrees < 191.25) return "S";
+      if (degrees >= 191.25 && degrees < 213.75) return "SSW";
+      if (degrees >= 213.75 && degrees < 236.25) return "SW";
+      if (degrees >= 236.25 && degrees < 258.75) return "WSW";
+      if (degrees >= 258.75 && degrees < 281.25) return "W";
+      if (degrees >= 281.25 && degrees < 303.75) return "WNW";
+      if (degrees >= 303.75 && degrees < 326.25) return "NW";
+      if (degrees >= 326.25 && degrees < 348.75) return "NNW";
+      return "N"; // Default
+    }
+
+    // Get wind description based on speed
+    function getWindDescription(speed) {
+      for (const desc of windDescriptions) {
+        if (speed <= desc.max) {
+          return { text: desc.desc, color: desc.color };
+        }
+      }
+      return { text: "Unknown", color: "#ffffff" };
+    }
+
+    // Only show error toasts, not success messages
+    const toast = (msg, type = "info") => {
+      if (type === "error") {
+        Toastify({
+          text: msg,
+          duration: 3000,
+          gravity: "top",
+          position: "center",
+          backgroundColor: "#ff4444"
+        }).showToast();
+      }
+    };
+
+    const temperatureChart = new Chart(document.getElementById("temperatureChart"), {
+      type: "line",
+      data: {
+        labels: labels,
+        datasets: [
+          { label: "Temperature", data: tempData, borderColor: "orange", fill: false },
+          { label: "Min Temp", data: minTemps, borderColor: "blue", borderDash: [5,5], fill: false },
+          { label: "Max Temp", data: maxTemps, borderColor: "red", borderDash: [5,5], fill: false },
+        ]
+      },
+      options: { 
+        scales: { y: { beginAtZero: true } },
+        animation: false
+      }
+    });
+
+    const humidityChart = new Chart(document.getElementById("humidityChart"), {
+      type: "line",
+      data: { 
+        labels: labels, 
+        datasets: [{ label: "Humidity (%)", data: [], borderColor: "cyan", fill: false }] 
+      },
+      options: { 
+        scales: { y: { beginAtZero: true } },
+        animation: false
+      }
+    });
+
+    const pressureChart = new Chart(document.getElementById("pressureChart"), {
+      type: "line",
+      data: { 
+        labels: labels, 
+        datasets: [{ label: "Pressure (hPa)", data: [], borderColor: "lime", fill: false }] 
+      },
+      options: { 
+        scales: { y: { beginAtZero: true } },
+        animation: false
+      }
+    });
+
+    const windSpeedChart = new Chart(document.getElementById("windSpeedChart"), {
+      type: "line",
+      data: { 
+        labels: labels, 
+        datasets: [
+          { 
+            label: "Wind Speed (m/s)", 
+            data: windData, 
+            borderColor: "#ff9933", 
+            backgroundColor: "rgba(255, 153, 51, 0.1)",
+            fill: true,
+            tension: 0.1
+          }
+        ] 
+      },
+      options: { 
+        scales: { 
+          y: { 
+            beginAtZero: true,
+            title: {
+              display: true,
+              text: 'Wind Speed (m/s)'
+            }
+          }
+        },
+        animation: false,
+        plugins: {
+          tooltip: {
+            callbacks: {
+              label: function(context) {
+                const index = context.dataIndex;
+                const direction = windDirectionData[index] || '--';
+                return [Wind Speed: ${context.parsed.y} m/s, Direction: ${direction}];
+              }
+            }
+          }
+        }
+      }
+    });
+
+    // Update direction history visualization
+    function updateDirectionHistory(direction) {
+      const historyElement = document.getElementById('direction-history');
+      if (!historyElement) return;
+
+      // Keep only last 20 directions
+      directionHistory.push(direction);
+      if (directionHistory.length > 20) {
+        directionHistory.shift();
+      }
+
+      // Clear previous markers
+      historyElement.innerHTML = '';
+
+      // Create new markers
+      const width = historyElement.offsetWidth;
+      const segmentWidth = width / 20;
+
+      directionHistory.forEach((dir, index) => {
+        const degrees = directionToDegrees(dir);
+        const marker = document.createElement('div');
+        marker.className = 'direction-marker';
+        marker.style.height = '40px';
+        marker.style.left = ${index * segmentWidth + segmentWidth/2}px;
+        marker.style.transform = rotate(${degrees}deg);
+        
+        if (index === directionHistory.length - 1) {
+          marker.style.backgroundColor = '#ff9933'; // Highlight most recent
+          marker.style.width = '3px';
+        }
+        
+        historyElement.appendChild(marker);
+      });
+    }
+
+    function checkThresholds(id, value) {
+      const minInput = document.getElementById(${id}-min);
+      const maxInput = document.getElementById(${id}-max);
+      const card = document.getElementById(${id}-card);
+      
+      if (!minInput || !maxInput || !card) return;
+      
+      const min = parseFloat(minInput.value);
+      const max = parseFloat(maxInput.value);
+      
+      if (value < min || value > max) {
+        card.classList.add('out-of-range');
+      } else {
+        card.classList.remove('out-of-range');
+      }
+    }
+
+    function updateText(id, val, unit) {
+      const element = document.getElementById(id);
+      if (element) {
+        element.innerText = ${val} ${unit};
+        
+        // Check thresholds for main readings
+        if (id === "temp") checkThresholds("temp", val);
+        if (id === "humidity") checkThresholds("humidity", val);
+        if (id === "pressure") checkThresholds("pressure", val);
+        if (id === "windSpeed") checkThresholds("wind", val);
+      }
+    }
+
+    function updateNeedle(dir) {
+      // Convert direction to degrees
+      const degrees = directionToDegrees(dir);
+      
+      // Update needle rotation
+      const needle = document.getElementById("needle");
+      if (needle) {
+        needle.style.transform = rotate(${degrees}deg);
+      }
+      
+      // Update direction text
+      const directionText = document.getElementById("direction-text");
+      if (directionText) {
+        const cardinalDir = typeof dir === 'number' ? degreesToDirection(dir) : dir;
+        directionText.innerText = cardinalDir;
+      }
+      
+      // Update direction in detailed wind info
+      const directionValue = document.getElementById("wind-direction-value");
+      if (directionValue) {
+        const cardinalDir = typeof dir === 'number' ? degreesToDirection(dir) : dir;
+        directionValue.innerText = ${cardinalDir} (${Math.round(degrees)}°);
+      }
+      
+      // Update direction history
+      updateDirectionHistory(dir);
+    }
+
+    function updateWindStatus(speed) {
+      const statusElement = document.getElementById("wind-status");
+      if (!statusElement) return;
+      
+      const desc = getWindDescription(speed);
+      statusElement.innerText = desc.text;
+      statusElement.style.color = desc.color;
+      
+      // Also update the detailed wind speed display
+      const speedValue = document.getElementById("wind-speed-value");
+      if (speedValue) {
+        speedValue.innerText = ${speed} m/s;
+      }
+    }
+
+    function checkConnection() {
+      const now = new Date();
+      if (lastUpdateTime) {
+        const timeSinceUpdate = now - lastUpdateTime;
+        // If no updates in 15 seconds, consider disconnected
+        if (timeSinceUpdate > 15000 && isConnected) {
+          disconnect("⚠ Sensor disconnected - No data received");
+        }
+      }
+    }
+
+    function fetchData() {
+      sensorRef.once('value')
+        .then(snapshot => {
+          const data = snapshot.val();
+          if (!data) {
+            disconnect("⚠ No sensor data found in Firebase");
+            return;
+          }
+          
+          const now = new Date();
+          const timeString = now.toLocaleTimeString();
+          lastUpdateTime = now;
+          isConnected = true;
+          
+          // Update display values
+          updateText("temp", data.temperature_dht, "°C");
+          updateText("humidity", data.humidity, "%");
+          updateText("pressure", data.pressure, "hPa");
+          updateText("windSpeed", data.wind_speed, "m/s");
+          
+          updateNeedle(data.wind_direction);
+          updateWindStatus(data.wind_speed);
+          
+          // Calculate min/max for last 24 values
+          const recent = [...tempData.slice(-24), data.temperature_dht];
+          const min = recent.length > 0 ? Math.min(...recent) : data.temperature_dht;
+          const max = recent.length > 0 ? Math.max(...recent) : data.temperature_dht;
+          
+          updateText("minTemp", min.toFixed(1), "°C");
+          updateText("maxTemp", max.toFixed(1), "°C");
+          
+          // Update charts only if connected
+          if (isConnected) {
+            labels.push(timeString);
+            tempData.push(data.temperature_dht);
+            minTemps.push(min);
+            maxTemps.push(max);
+            humidityChart.data.datasets[0].data.push(data.humidity);
+            pressureChart.data.datasets[0].data.push(data.pressure);
+            windData.push(data.wind_speed);
+            windDirectionData.push(data.wind_direction);
+            
+            // Limit chart points
+            if (labels.length > maxPoints) {
+              labels.shift();
+              tempData.shift();
+              minTemps.shift();
+              maxTemps.shift();
+              humidityChart.data.datasets[0].data.shift();
+              pressureChart.data.datasets[0].data.shift();
+              windData.shift();
+              windDirectionData.shift();
+            }
+            
+            // Update status and charts
+            document.getElementById("firebaseStatus").textContent = "Connected ✅";
+            document.getElementById("retryTimer").textContent = "";
+            
+            temperatureChart.update();
+            humidityChart.update();
+            pressureChart.update();
+            windSpeedChart.update();
+          }
+          
+          // Save to history for CSV export
+          history.push({
+            timestamp: timeString,
+            temperature: data.temperature_dht,
+            humidity: data.humidity,
+            pressure: data.pressure,
+            wind_speed: data.wind_speed,
+            wind_direction: data.wind_direction
+          });
+          
+          // Keep history at reasonable size
+          if (history.length > 100) {
+            history.shift();
+          }
+        })
+        .catch(error => {
+          disconnect("❌ Failed to fetch from Firebase: " + error.message);
+          console.error("Error fetching from Firebase", error);
+        });
+    }
+
+    function disconnect(msg) {
+      isConnected = false;
+      clearInterval(fetchInterval);
+      document.getElementById("firebaseStatus").textContent = msg;
+      toast(msg, "error");
+      startCountdown();
+    }
+
+    function startCountdown() {
+      retryCountdown = 30;
+      clearInterval(countdownInterval);
+      countdownInterval = setInterval(() => {
+        retryCountdown--;
+        document.getElementById("retryTimer").textContent = Retrying in ${retryCountdown}s...;
+        if (retryCountdown === 0) {
+          clearInterval(countdownInterval);
+          reconnect();
+        }
+      }, 1000);
+    }
+
+    function reconnect() {
+      clearInterval(fetchInterval);
+      clearInterval(countdownInterval);
+      document.getElementById("retryTimer").textContent = "";
+      document.getElementById("firebaseStatus").textContent = "Reconnecting...";
+      
+      // Try to fetch immediately
+      fetchData();
+      
+      // Set up regular polling
+      fetchInterval = setInterval(fetchData, 5000);
+      
+      // Check connection status every 10 seconds
+      setInterval(checkConnection, 10000);
+    }
+
+    function exportCSV() {
+      let csv = "Timestamp,Temperature,Humidity,Pressure,WindSpeed,WindDirection\n";
+      history.forEach(e => {
+        csv += ${e.timestamp},${e.temperature},${e.humidity},${e.pressure},${e.wind_speed},${e.wind_direction}\n;
+      });
+      
+      const blob = new Blob([csv], { type: "text/csv" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "crane_weather_data.csv";
+      a.click();
+    }
+
+    // Start fetching on load
+    reconnect();
+  </script>
+</body>
+</html>
