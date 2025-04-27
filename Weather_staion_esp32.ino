@@ -1,132 +1,136 @@
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <Wire.h>
+#include <DHT.h>
 #include <Adafruit_Sensor.h>
 #include <Adafruit_BMP280.h>
-#include <DHT.h>
-
-#define IR_SENSOR_PIN 25
-const float ARM_DISTANCE_CM = 9.42;
-const int ARM_COUNT = 3;
-const int ROTATION_SAMPLES = 5;  // Averaging over 5 full rotations
-const unsigned long DEBOUNCE_MICROS = 10000; // 10 ms debounce
-
-volatile unsigned long lastTriggerMicros = 0;
-volatile int tickCount = 0;
-volatile bool newRotation = false;
-
-unsigned long rotationTimestamps[ROTATION_SAMPLES];
-int rotationIndex = 0;
-bool bufferFilled = false;
-
-// Sensor setup
-#define DHTPIN 4 // GPIO pin connected to DHT22 (use appropriate ESP32 pin)
-#define DHTTYPE DHT22
-DHT dht(DHTPIN, DHTTYPE);
-Adafruit_BMP280 bmp;
 
 // WiFi credentials
-const char* ssid = "Sweet Home";
-const char* password = "9619702210";
+#define WIFI_SSID "Sweet Home"
+#define WIFI_PASSWORD "9619702210"
 
-// Your server endpoint
-const char* serverURL = "https://weather-station-1b75f-default-rtdb.firebaseio.com/sensor.json";
+// Firebase Realtime Database URL
+const char* databaseURL = "http://weather-station-7f947-default-rtdb.firebaseio.com/sensor.json";
 
-void IRAM_ATTR handleIRTrigger() {
-  unsigned long currentMicros = micros();
-  if (currentMicros - lastTriggerMicros > DEBOUNCE_MICROS) {
-    tickCount++;
+// Sensor Pins
+#define DHTPIN 23
+#define DHTTYPE DHT22
+DHT dht(DHTPIN, DHTTYPE);
 
-    if (tickCount >= ARM_COUNT) {
-      tickCount = 0;
-      rotationTimestamps[rotationIndex] = currentMicros;
-      rotationIndex = (rotationIndex + 1) % ROTATION_SAMPLES;
-      if (rotationIndex == 0) bufferFilled = true;
-      newRotation = true;
-    }
+// Anemometer Pin
+#define ANEMOMETER_PIN 4
 
-    lastTriggerMicros = currentMicros;
-  }
+// Wind Vane Hall Sensor Pins
+#define WIND_HALL_1 27
+#define WIND_HALL_2 26
+#define WIND_HALL_3 25
+#define WIND_HALL_4 33
+
+// Global Variables
+volatile int anemometerTicks = 0;
+unsigned long lastAnemometerCheck = 0;
+float windSpeed_mps = 0.0;
+
+Adafruit_BMP280 bmp;
+
+// ISR for anemometer pulse counting
+void IRAM_ATTR anemometerISR() {
+  anemometerTicks++;
 }
 
 void setup() {
   Serial.begin(115200);
-  WiFi.begin(ssid, password);
+
+  // Connect to WiFi
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
   }
-  Serial.println("\nConnected to WiFi!");
+  Serial.println("\nWiFi connected!");
 
-  pinMode(IR_SENSOR_PIN, INPUT);
-  attachInterrupt(digitalPinToInterrupt(IR_SENSOR_PIN), handleIRTrigger, FALLING);
-
+  // Initialize sensors
   dht.begin();
   if (!bmp.begin(0x76)) {
     Serial.println("BMP280 not found!");
     while (1);
   }
+
+  // Setup Anemometer pin
+  pinMode(ANEMOMETER_PIN, INPUT_PULLUP);
+  attachInterrupt(digitalPinToInterrupt(ANEMOMETER_PIN), anemometerISR, FALLING);
+
+  // Setup Wind vane hall sensor pins
+  pinMode(WIND_HALL_1, INPUT_PULLUP);
+  pinMode(WIND_HALL_2, INPUT_PULLUP);
+  pinMode(WIND_HALL_3, INPUT_PULLUP);
+  pinMode(WIND_HALL_4, INPUT_PULLUP);
 }
 
 void loop() {
-  float windSpeed_mps = 0.0;
-  static unsigned long lastUpdate = 0;
+  unsigned long currentMillis = millis();
 
-  if (newRotation) {
-    newRotation = false;
+  // Check wind speed every 5 seconds
+  if (currentMillis - lastAnemometerCheck >= 5000) {
+    noInterrupts();
+    int tickCount = anemometerTicks;
+    anemometerTicks = 0;
+    interrupts();
 
-    float totalTime = 0.0;
-    int count = bufferFilled ? ROTATION_SAMPLES : rotationIndex;
+    // Assuming 1 tick per rotation
+    float rotationsPerSecond = tickCount / 5.0;
+    float circumference_cm = 2 * PI * (9.42 / (2 * sin(PI / 3))); // 3 arms = 120 degrees apart
+    float linearSpeed_cmps = rotationsPerSecond * circumference_cm;
+    windSpeed_mps = linearSpeed_cmps / 100.0; // Convert cm/s to m/s
 
-    for (int i = 1; i < count; i++) {
-      int indexA = (rotationIndex + ROTATION_SAMPLES - i - 1) % ROTATION_SAMPLES;
-      int indexB = (rotationIndex + ROTATION_SAMPLES - i) % ROTATION_SAMPLES;
-      totalTime += (rotationTimestamps[indexB] - rotationTimestamps[indexA]);
-    }
-
-    if (count > 1) {
-      float avgRotationTimeSec = (totalTime / (count - 1)) / 1000000.0;
-      float rps = 1.0 / avgRotationTimeSec;
-
-      float radius_cm = ARM_DISTANCE_CM / (2 * sin(PI / ARM_COUNT));
-      float circumference_cm = 2 * PI * radius_cm;
-      float linearSpeed_cmps = rps * circumference_cm;
-      windSpeed_mps = linearSpeed_cmps / 100.0;
-    }
+    lastAnemometerCheck = currentMillis;
   }
 
-  if (millis() - lastUpdate >= 5000) {
-    lastUpdate = millis();
+  // Read DHT22
+  float temperature = dht.readTemperature();
+  float humidity = dht.readHumidity();
 
-    float pressure = bmp.readPressure() / 100.0F; // Convert to hPa
-    float humidity = dht.readHumidity();
-    float temperatureDHT = dht.readTemperature();
+  // Read BMP280
+  float pressure = bmp.readPressure() / 100.0F; // hPa
 
-    if (isnan(humidity) || isnan(temperatureDHT)) {
-      Serial.println("Failed to read from DHT sensor!");
-      return;
-    }
+  // Read Wind Vane Direction
+  int windDirHall1 = digitalRead(WIND_HALL_1);
+  int windDirHall2 = digitalRead(WIND_HALL_2);
+  int windDirHall3 = digitalRead(WIND_HALL_3);
+  int windDirHall4 = digitalRead(WIND_HALL_4);
 
-    Serial.printf("Temp (DHT): %.2f°C, Pressure: %.2f hPa, Humidity: %.2f%%, Wind Speed: %.2f m/s\n",
-                  temperatureDHT, pressure, humidity, windSpeed_mps);
+  if (isnan(temperature) || isnan(humidity)) {
+    Serial.println("Failed to read from DHT sensor!");
+    return;
+  }
 
-    if (WiFi.status() == WL_CONNECTED) {
-      HTTPClient http;
-      http.begin(serverURL);
-      http.addHeader("Content-Type", "application/json");
+  // Prepare JSON Payload
+  String payload = "{";
+  payload += "\"temperature\":" + String(temperature) + ",";
+  payload += "\"humidity\":" + String(humidity) + ",";
+  payload += "\"pressure\":" + String(pressure) + ",";
+  payload += "\"wind_speed\":" + String(windSpeed_mps);
+  payload += "}";
 
-      String payload = String("{") +
-                       "\"temperature_dht\":" + temperatureDHT + "," +
-                       "\"pressure\":" + pressure + "," +
-                       "\"humidity\":" + humidity + "," +
-                       "\"wind_speed\":" + windSpeed_mps +
-                       "}";
+  Serial.println("Sending payload: " + payload);
 
-      int httpResponseCode = http.PUT(payload);
-      Serial.printf("HTTP Response Code: %d\n", httpResponseCode);
-      http.end();
+  if (WiFi.status() == WL_CONNECTED) {
+    HTTPClient http;
+    http.begin(databaseURL);
+    http.addHeader("Content-Type", "application/json");
+
+    int httpResponseCode = http.PUT(payload); // You can also use .POST(payload)
+
+    if (httpResponseCode > 0) {
+      Serial.printf("HTTP Response code: %d\n", httpResponseCode);
     } else {
-      Serial.println("WiFi not connected!");
+      Serial.printf("Error code: %d\n", httpResponseCode);
     }
+
+    http.end();
+  } else {
+    Serial.println("WiFi disconnected!");
   }
+
+  delay(5000); // Send every 5 seconds
 }
